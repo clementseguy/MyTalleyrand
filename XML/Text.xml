@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Text.xml: Textes et traductions pour le mod -->
+<GameData>
+    <Language_fr_FR>
+        <!-- Ajoutez vos textes français ici -->
+    </Language_fr_FR>
+    
+    <Language_en_US>
+        <!-- Ajoutez vos textes anglais ici -->
+    </Language_en_US>
+</GameData>

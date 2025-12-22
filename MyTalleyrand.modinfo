@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Mod id="a1b2c3d4-e5f6-7890-abcd-ef1234567890" version="1.0">
+    <Properties>
+        <Name>MyTalleyrand</Name>
+        <Teaser>Un mod personnalisé pour Civilization V</Teaser>
+        <Description>MyTalleyrand apporte de nouvelles fonctionnalités et modifications au gameplay de Civilization V.</Description>
+        <Authors>Votre Nom</Authors>
+        <HideSetupGame>0</HideSetupGame>
+        <AffectsSavedGames>1</AffectsSavedGames>
+        <MinCompatibleSaveVersion>0</MinCompatibleSaveVersion>
+        <SupportsSinglePlayer>1</SupportsSinglePlayer>
+        <SupportsMultiplayer>1</SupportsMultiplayer>
+        <SupportsHotSeat>1</SupportsHotSeat>
+        <SupportsMac>1</SupportsMac>
+        <ReloadAudioSystem>0</ReloadAudioSystem>
+        <ReloadLandmarkSystem>0</ReloadLandmarkSystem>
+        <ReloadStrategicViewSystem>0</ReloadStrategicViewSystem>
+        <ReloadUnitSystem>0</ReloadUnitSystem>
+    </Properties>
+    
+    <Dependencies />
+    
+    <References />
+    
+    <Blocks />
+    
+    <Files>
+        <!-- Fichiers XML -->
+        <File md5="..." import="1" source="XML/GameDefines.xml"/>
+        <File md5="..." import="1" source="XML/Text.xml"/>
+        
+        <!-- Fichiers Lua -->
+        <File md5="..." import="0" source="Lua/GameplayScript.lua"/>
+        
+        <!-- Fichiers SQL -->
+        <File md5="..." import="0" source="SQL/ModSchema.sql"/>
+    </Files>
+    
+    <Actions>
+        <!-- Actions pour charger les fichiers XML dans la base de données -->
+        <OnModActivated>
+            <UpdateDatabase>XML/GameDefines.xml</UpdateDatabase>
+            <UpdateDatabase>XML/Text.xml</UpdateDatabase>
+            <UpdateDatabase>SQL/ModSchema.sql</UpdateDatabase>
+        </OnModActivated>
+        
+        <!-- Actions pour charger les scripts Lua au démarrage du jeu -->
+        <OnGameInit>
+            <File>Lua/GameplayScript.lua</File>
+        </OnGameInit>
+    </Actions>
+    
+    <EntryPoints>
+        <EntryPoint type="InGameUIAddin" file="Lua/GameplayScript.lua">
+            <Name>MyTalleyrand Gameplay</Name>
+            <Description>Script de gameplay principal</Description>
+        </EntryPoint>
+    </EntryPoints>
+</Mod>
