@@ -1,30 +1,53 @@
-# MyTalleyrand - Mod Conseiller pour Civilization V
+# MyTalleyrand - Coach LLM pour Civilization V
 
-## Description
+**Mod Civilization V + Application coach utilisant un LLM pour vous guider en temps réel**
 
-MyTalleyrand est un mod pour Civilization V qui introduit un nouveau conseiller diplomatique et stratégique inspiré de Talleyrand, offrant des recommandations intelligentes pour vos décisions politiques et militaires.
+## 🎯 Description
 
-## Prérequis
+MyT⚡ Démarrage rapide
 
-- Civilization V installé (avec ou sans extensions)
-- Système d'exploitation : Windows, macOS ou Linux
+### 1. Cloner le repository
 
-## Installation
+```bash
+git clone https://github.com/clementseguy/MyTalleyrand.git
+cd MyTalleyrand
+```
 
-### Méthode 1 : Installation manuelle
+### 2. Installer le mod Civilization V
 
-1. Localisez votre dossier Mods de Civilization V :
-   - **Windows** : `Documents\My Games\Sid Meier's Civilization 5\MODS\`
-   - **macOS** : `~/Documents/Aspyr/Sid Meier's Civilization 5/MODS/`
-   - **Linux** : `~/.local/share/Aspyr/Sid Meier's Civilization 5/MODS/`
+Voir [mod/README.md](mod/README.md) pour les instructions détaillées.
 
-2. Copiez le dossier `MyTalleyrand` dans le répertoire MODS
+**macOS (Aspyr) :**
+```bash
+cp -r mod/ ~/Documents/Aspyr/Sid\ Meier\'s\ Civilization\ 5/MODS/MyTalleyrand/
+mkdir -p ~/Documents/Aspyr/Sid\ Meier\'s\ Civilization\ 5/MODS/MyTalleyrand/export/
+```
 
-3. Lancez Civilization V et activez le mod depuis le menu "Mods"
+### 3. Installer l'application coach
 
-### Méthode 2 : Via Steam Workshop (à venir)
+Voir [coach/README.md](coach/README.md) pour les instructions détaillées.
 
-Publication sur Steam Workshop prévue prochainement.
+```bash
+cd coach
+pip3 install -r requirements.txt
+
+# Configurer la clé API
+python3 src/main.py --setup
+```
+
+### 4. Lancer le coach
+
+```bash
+cd coach
+python3 src/main.py
+```
+
+### 5. Jouer !
+
+1. Lancer Civilization V en **mode fenêtré**
+2. Activer le mod **MyTalleyrand**
+3. Démarrer une partie
+4. L'overlay s'affiche avec les conseils du coachment.
 
 ## Structure du projet
 
@@ -89,63 +112,103 @@ Consultez [docs/TESTING.md](docs/TESTING.md) pour les instructions détaillées 
 4. Vérifiez les logs dans `Logs/Database.log` et `Logs/Lua.log`
 5. Testez les fonctionnalités du conseiller
 
-### Vérifier la stabilité
+###🛠️ Stack technique
 
-1. **Syntaxe XML** : Validez avec un parseur XML
-2. **Syntaxe Lua** : Vérifiez avec `luac -p fichier.lua`
-3. **Logs du jeu** : Consultez les fichiers de log après chargement
-4. **Test en jeu** : Lancez une partie complète (50+ tours)
-5. **Sauvegarde/Chargement** : Testez la persistance des données
+### Mod Civilization V
+- **Lua** : Export de l'état du jeu
+- **XML** : Définitions et traductions
+- **SQL** : Modifications de base de données
 
-### Scripts utilitaires
+### Application Coach
+- **Python 3.11+** : Langage principal
+- **PyQt6** : Interface overlay
+- **OpenAI API** : LLM (GPT-4o-mini recommandé)
+- **Watchdog** : Surveillance fichiers
+- **Keyring** : Stockage sécurisé clés API (Keychain macOS)
 
-Le projet inclut des scripts pour faciliter le développement :
+### Plateforme
+- **macOS 13+** (Ventura, Sonoma) - prioritaire
+- Windows et Linux en développement
+
+## 📚 Documentation
+
+- [**Guide technique macOS**](docs/MACOS_GUIDE.md) : Détails implémentation, permissions, overlay
+- [**Backlog**](docs/BACKLOG.md) : 14 User Stories, roadmap 4 sprints
+- [**Analyse faisabilité**](docs/TODO.md) : Choix techniques et contraintes
+- [**README Mod**](mod/README.md) : Installation et utilisation du mod Civ5
+- [**README Coach**](coach/README.md) : Installation et utilisation de l'app Python
+
+## 🚧 Statut du projet
+
+**Phase actuelle :** Planning et architecture (Sprint 0 en préparation)
+
+### ✅ Complété
+- Architecture hybride définie (Mod + App externe)
+- Stack technique validée (Python + PyQt6 + OpenAI)
+- Documentation complète (1900+ lignes)
+- Backlog détaillé (14 User Stories, 115 points)
+- Spécifications macOS documentées
+
+### 🔜 Prochaines étapes (Sprint 0)
+- **US-001** : Collecte données de jeu (Lua → JSON)
+- **US-002** : Squelette application coach
+- **US-003** : Intégration API LLM
+- **US-004** : Overlay PyQt6 fonctionnel
+
+Voir [docs/BACKLOG.md](docs/BACKLOG.md) pour le détail.
+
+## 💡 Fonctionnalités prévues
+
+### MVP (Sprint 0-1)
+- ✅🧪 Validation et tests
 
 ```bash
-# Validation automatique du projet
+# Validation automatique de la structure
 ./scripts/validate.sh
 
 # Guide interactif de démarrage
 ./scripts/start.sh
+
+# Tests unitaires Python
+cd coach && python3 -m pytest tests/
 ```
 
-## Fonctionnalités prévues
+## 🤝 Contribution
 
-- ✨ Conseiller Talleyrand avec interface dédiée
-- 🎯 Recommandations diplomatiques contextuelles
-- ⚔️ Conseils stratégiques militaires
-- 🏛️ Analyse des relations internationales
-- 📊 Évaluation des forces en présence
+Les contributions sont bienvenues ! Consultez [docs/BACKLOG.md](docs/BACKLOG.md) pour voir les User Stories disponibles.
 
-## Compatibilité
+### Workflow de développement
+1. Fork le projet
+2. Créer une branche (`git checkout -b feature/US-XXX`)
+3. Implémenter la User Story
+4. Tester (`./scripts/validate.sh`)
+5. Commiter (`git commit -m "feat: US-XXX - description"`)
+6. Push et Pull Request
 
-- ✅ Solo
-- ✅ Multijoueur
-- ✅ Hotseat
-- ✅ Windows / macOS / Linux
-- ⚠️ Affecte les sauvegardes (activez avant de commencer une partie)
+## 🐛 Problèmes connus
 
-## Contribution
+- **Overlay macOS** : Nécessite Civ5 en mode fenêtré (plein écran non supporté)
+- **Permissions** : Accès Accessibilité requis sur macOS
+- **Performance** : Overlay optimisé pour < 5% CPU
 
-Les contributions sont les bienvenues ! Respectez les règles suivantes :
+Voir [docs/MACOS_GUIDE.md](docs/MACOS_GUIDE.md) section "Support" pour solutions.
 
-1. **Pas de régression** : Toute modification doit être testée
-2. **Code modulaire** : Réutilisez les composants existants
-3. **Suppression du code mort** : Nettoyez le code inutilisé
-4. **Documentation** : Mettez à jour le README et TESTING.md
-5. **Tests avant commit** : Validez la stabilité complète
-
-## Licence
+## 📜 Licence
 
 À définir
 
-## Auteur
+## 👤 Auteur
 
-Clément Séguy
+**Clément Séguy**
+- GitHub: [@clementseguy](https://github.com/clementseguy)
 
-## Historique des versions
+## 🙏 Remerciements
 
-### v1.0 (En développement)
-- Structure initiale du projet
-- Configuration de base du mod
-- Documentation complète
+- Communauté CivFanatics pour la documentation modding
+- OpenAI pour l'API GPT
+- PyQt6 pour le framework UI
+
+---
+
+**Version actuelle :** 0.1.0 (Architecture & Planning)  
+**Dernière mise à jour :** 22 décembre 2025

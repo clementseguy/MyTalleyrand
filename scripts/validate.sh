@@ -18,21 +18,23 @@ FAILED=0
 # Test 1: Vérifier la présence des fichiers
 echo "📁 Vérification de la structure..."
 FILES=(
-    "MyTalleyrand.modinfo"
     "README.md"
     ".gitignore"
-    "XML/GameDefines.xml"
-    "XML/Text.xml"
-    "Lua/GameplayScript.lua"
-    "SQL/ModSchema.sql"
+    "mod/MyTalleyrand.modinfo"
+    "mod/README.md"
+    "mod/XML/GameDefines.xml"
+    "mod/XML/Text.xml"
+    "mod/Lua/GameplayScript.lua"
+    "mod/SQL/ModSchema.sql"
+    "coach/README.md"
+    "coach/requirements.txt"
+    "coach/src/main.py"
+    "coach/src/config.py"
     "docs/QUICKSTART.md"
     "docs/SUMMARY.md"
-    "docs/DONE.md"
-    "docs/GIT_COMMANDS.md"
-    "docs/TESTING.md"
-    "docs/VALIDATION.md"
-    "docs/VALIDATION_REPORT.md"
-    "docs/GITHUB_SETUP.md"
+    "docs/BACKLOG.md"
+    "docs/TODO.md"
+    "docs/MACOS_GUIDE.md"
     "scripts/validate.sh"
     "scripts/start.sh"
 )
@@ -50,9 +52,9 @@ echo ""
 
 # Test 2: Vérifier la syntaxe XML
 echo "🔬 Validation de la syntaxe XML..."
-if command -v xmllint &> /dev/null; then
-    XML_FILES=(
-        "MyTalleyrand.modinfo"
+if commanmod/MyTalleyrand.modinfo"
+        "mod/XML/GameDefines.xml"
+        "mod/MyTalleyrand.modinfo"
         "XML/GameDefines.xml"
         "XML/Text.xml"
     )
@@ -75,7 +77,7 @@ echo ""
 # Test 3: Vérifier la syntaxe Lua
 echo "🔬 Validation de la syntaxe Lua..."
 if command -v luac &> /dev/null; then
-    if luac -p Lua/GameplayScript.lua 2>&1; then
+    if luac -p mod/Lua/GameplayScript.lua 2>&1; then
         echo -e "  ${GREEN}✓${NC} GameplayScript.lua valide"
         ((PASSED++))
     else

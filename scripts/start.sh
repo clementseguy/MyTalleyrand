@@ -26,29 +26,25 @@ if [ "$COMMITS" -eq 0 ]; then
     echo ""
     echo "2️⃣  Lire la documentation"
     echo "   → cat docs/SUMMARY.md"
-    echo "   → cat docs/VALIDATION_REPORT.md"
+    echo "   → cat docs/BACKLOG.md"
     echo ""
-    echo "3️⃣  Commiter le projet"
-    echo "   → Consulter docs/GIT_COMMANDS.md pour la commande exacte"
-    echo "   → ou copier/coller depuis docs/GITHUB_SETUP.md"
+    echo "3️⃣  Tester l'application coach"
+    echo "   → cd coach && python3 src/main.py"
     echo ""
-    echo "4️⃣  Créer le dépôt GitHub"
-    echo "   → Option A: gh repo create (voir docs/GIT_COMMANDS.md)"
-    echo "   → Option B: Via l'interface web (voir docs/GITHUB_SETUP.md)"
-    echo ""
-    echo "5️⃣  Pousser sur GitHub"
-    echo "   → git push -u origin main"
+    echo "4️⃣  Pousser les changements sur GitHub"
+    echo "   → git add -A && git commit -m \"refactor: réorganisation repo mod + coach\""
+    echo "   → git push"
     echo ""
     echo "📚 DOCUMENTATION DISPONIBLE:"
-    echo "   - README.md : Vue d'ensemble"
-    echo "   - docs/SUMMARY.md : Récapitulatif complet"
-    echo "   - docs/DONE.md : Mission accomplie !"
-    echo "   - docs/GIT_COMMANDS.md : Commandes Git prêtes"
-    echo "   - docs/TESTING.md : Guide de test"
-    echo "   - docs/GITHUB_SETUP.md : Configuration GitHub"
+    echo "   - README.md : Vue d'ensemble du projet"
+    echo "   - mod/README.md : Documentation du mod Civ5"
+    echo "   - coach/README.md : Documentation de l'app coach"
+    echo "   - docs/MACOS_GUIDE.md : Guide technique macOS complet"
+    echo "   - docs/BACKLOG.md : User Stories et roadmap"
+    echo "   - docs/TODO.md : Analyse de faisabilité"
     echo ""
     echo "🧪 TESTS:"
-    echo "   - ./validate.sh : Validation automatique"
+    echo "   - ./scripts/validate.sh : Validation automatique"
     echo ""
     
     # Proposer de lancer la validation
@@ -56,7 +52,8 @@ if [ "$COMMITS" -eq 0 ]; then
     read -r response
     if [[ "$response" =~ ^[Oo]$ ]]; then
         echo ""
-        ./validate.sh
+        cd "$(dirname "$0")/.."
+        ./scripts/validate.sh
     fi
     
 else
@@ -80,16 +77,16 @@ else
             echo "1️⃣  Tester le mod dans Civilization V"
             echo "   → Voir docs/TESTING.md"
             echo ""
-            echo "2️⃣  Créer une branche de développement"
-            echo "   → git checkout -b develop"
-            echo "   → git push -u origin develop"
+            echo "2️⃣  Installer les dépendances du coach"
+            echo "   → cd coach && pip3 install -r requirements.txt"
             echo ""
-            echo "3️⃣  Commencer le développement"
-            echo "   → Implémenter le conseiller Talleyrand"
-            echo "   → Voir README.md section \"Développement\""
+            echo "2️⃣  Tester le mod dans Civilization V"
+            echo "   → Copier mod/ vers ~/Documents/Aspyr/.../MODS/"
+            echo "   → Voir mod/README.md"
             echo ""
-        else
-            echo "⚠️  Remote configuré mais inaccessible"
+            echo "3️⃣  Commencer le développement (US-001)"
+            echo "   → Voir docs/BACKLOG.md"
+            echo "   → Implémenter la collecte d'état de jeu
             echo "   → Vérifiez votre connexion et vos credentials"
             echo "   → git push -u origin main"
         fi
