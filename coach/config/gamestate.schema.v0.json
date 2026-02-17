@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mytalleyrand.local/schemas/gamestate.v0.json",
+  "title": "MyTalleyrand GameState v0",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "turn_id",
+    "turn_number",
+    "timestamp_utc",
+    "player",
+    "resources"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.1.0"
+    },
+    "turn_id": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "turn_number": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "timestamp_utc": {
+      "type": "string"
+    },
+    "player": {
+      "type": "object"
+    },
+    "resources": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": true
+}
