@@ -9,7 +9,8 @@ import sys
 import time
 from pathlib import Path
 
-from config import load_config, validate_config
+from src.config import load_config, validate_config
+from src.watcher import GameStateWatcher
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +21,15 @@ def _configure_logging(log_file: Path) -> None:
         level=logging.INFO,
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
         handlers=[logging.FileHandler(log_file), logging.StreamHandler(sys.stdout)],
+    )
+
+
+def _on_new_turn(payload: dict, source_file: Path) -> None:
+    logger.info(
+        "✅ Tour ingéré depuis %s (turn_id=%s, turn_number=%s)",
+        source_file,
+        payload["turn_id"],
+        payload["turn_number"],
     )
 
 
@@ -41,7 +51,12 @@ def main() -> int:
     logger.info("✅ Configuration chargée (schema=%s)", config.schema_version)
     logger.info("📁 Surveillance prévue: %s", config.gamestate_file)
 
+    watcher = GameStateWatcher(config.gamestate_file, _on_new_turn)
+    watcher.start()
+
     if args.once:
+        time.sleep(0.6)
+        watcher.stop()
         logger.info("Mode --once terminé")
         return 0
 
@@ -50,6 +65,8 @@ def main() -> int:
             time.sleep(1)
     except KeyboardInterrupt:
         logger.info("⏹️ Arrêt de Talleyrand Coach")
+    finally:
+        watcher.stop()
 
     return 0
 
