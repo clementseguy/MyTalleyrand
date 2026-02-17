@@ -17,10 +17,11 @@ coach/
 ├── tests/                 # Tests unitaires
 │   ├── __init__.py
 │   └── test_config.py
-├── config/                # Fichiers de configuration
+├── config/                # settings.json + schéma gamestate v0
 ├── logs/                  # Logs d'exécution
+├── scripts/               # Scripts run/test/lint
 ├── requirements.txt       # Dépendances Python
-└── README.md             # Ce fichier
+└── README.md              # Ce fichier
 ```
 
 ## 🚀 Installation
@@ -77,7 +78,7 @@ L'application nécessite l'accès **Accessibilité** :
 
 ```bash
 cd coach
-python3 src/main.py
+./scripts/run.sh
 ```
 
 ### Workflow
@@ -96,12 +97,10 @@ Ctrl+C dans le terminal
 ## 🧪 Tests
 
 ```bash
-# Tests unitaires
-cd coach
-python3 -m pytest tests/
+./scripts/test.sh
 
-# Avec couverture
-python3 -m pytest --cov=src tests/
+# Lint (vérification syntaxique Python)
+./scripts/lint.sh
 ```
 
 ## 📝 Logs

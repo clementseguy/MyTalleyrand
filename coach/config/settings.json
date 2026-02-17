@@ -1,0 +1,21 @@
+{
+  "schema_version": "0.1.0",
+  "paths": {
+    "civ5_user_dir": "~/Documents/Aspyr/Sid Meier's Civilization 5",
+    "mod_export_dir": "~/Documents/Aspyr/Sid Meier's Civilization 5/MODS/MyTalleyrand/export",
+    "gamestate_file": "~/Documents/Aspyr/Sid Meier's Civilization 5/MODS/MyTalleyrand/export/gamestate.json",
+    "log_file": "~/talleyrand.log"
+  },
+  "llm": {
+    "provider": "openai",
+    "model": "gpt-4o-mini",
+    "max_tokens": 500,
+    "temperature": 0.7,
+    "timeout_seconds": 15
+  },
+  "overlay": {
+    "width": 400,
+    "height": 600,
+    "opacity": 0.9
+  }
+}
