@@ -10,8 +10,9 @@ coach/
 │   ├── __init__.py
 │   ├── main.py            # Point d'entrée
 │   ├── watcher.py         # Surveillance gamestate.json
-│   ├── overlay.py         # Interface PyQt6
-│   ├── coach.py           # Moteur LLM
+│   ├── overlay.py         # Overlay MVP (état persistant + rendu texte)
+│   ├── coach.py           # Logique coach (tour 1 / tous les 10 tours + historique)
+│   ├── llm_client.py      # Sortie LLM structurée + fallback local
 │   ├── config.py          # Configuration
 │   └── keychain.py        # Gestion clés API
 ├── tests/                 # Tests unitaires
@@ -55,7 +56,7 @@ pip3 install -r requirements.txt
 
 ```bash
 # Lancer l'assistant de configuration
-python3 src/main.py --setup
+python3 src/main.py --once --victory-focus science
 
 # Ou manuellement via Python
 python3 -c "
@@ -86,7 +87,8 @@ cd coach
 1. Lancer l'application coach
 2. Démarrer Civilization V en **mode fenêtré**
 3. Charger une partie avec le mod MyTalleyrand activé
-4. L'overlay apparaît automatiquement avec les conseils
+4. Le coach déclenche une analyse au tour 1 puis tous les 10 tours
+5. L'overlay affiche l'objectif 10 tours et les actions prioritaires
 
 ### Arrêt
 
@@ -98,6 +100,9 @@ Ctrl+C dans le terminal
 
 ```bash
 ./scripts/test.sh
+
+# Suite phase 3/4/5
+python3 -m pytest tests/test_overlay.py tests/test_coach_engine.py tests/test_pipeline_integration.py
 
 # Lint (vérification syntaxique Python)
 ./scripts/lint.sh

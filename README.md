@@ -140,7 +140,7 @@ Consultez [docs/TESTING.md](docs/TESTING.md) pour les instructions détaillées 
 
 ## 🚧 Statut du projet
 
-**Phase actuelle :** Planning et architecture (Sprint 0 en préparation)
+**Phase actuelle :** Phases 3, 4 et 5 lancées (overlay MVP + logique coach + stabilisation)
 
 ### ✅ Complété
 - Architecture hybride définie (Mod + App externe)
@@ -149,13 +149,12 @@ Consultez [docs/TESTING.md](docs/TESTING.md) pour les instructions détaillées 
 - Backlog détaillé (14 User Stories, 115 points)
 - Spécifications macOS documentées
 
-### 🔜 Prochaines étapes (Sprint 0)
-- **US-001** : Collecte données de jeu (Lua → JSON)
-- **US-002** : Squelette application coach
-- **US-003** : Intégration API LLM
-- **US-004** : Overlay PyQt6 fonctionnel
+### ✅ Travaux lancés (Phases 3-5)
+- **Phase 3 / US-004** : overlay MVP avec position persistante et bascule affichage/masquage
+- **Phase 4 / US-006-007-008** : logique de déclenchement (tour 1 puis tous les 10 tours), recommandations catégorisées et historique local
+- **Phase 5 / US-014** : premiers tests d'intégration de bout en bout + validation automatisée de la chaîne watcher → coach → overlay
 
-Voir [docs/BACKLOG.md](docs/BACKLOG.md) pour le détail.
+Voir [docs/DEVELOPMENT_PLAN.md](docs/DEVELOPMENT_PLAN.md) pour le séquencement détaillé.
 
 ## 💡 Fonctionnalités prévues
 
@@ -210,5 +209,5 @@ Voir [docs/MACOS_GUIDE.md](docs/MACOS_GUIDE.md) section "Support" pour solutions
 
 ---
 
-**Version actuelle :** 0.1.0 (Architecture & Planning)  
+**Version actuelle :** 0.3.0 (Phases 3-5 en cours)  
 **Dernière mise à jour :** 22 décembre 2025
