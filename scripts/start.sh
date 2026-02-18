@@ -6,14 +6,14 @@ cd "$(dirname "$0")/.."
 echo "🎮 MyTalleyrand - démarrage rapide"
 echo "================================="
 
-echo "1) Validation projet"
+echo "1) Installation macOS (mod + coach)"
+echo "   ./script/install_macos.sh"
+
+echo ""
+echo "2) Validation projet"
 ./scripts/validate.sh || true
 
 echo ""
-echo "2) Smoke test coach (premier lancement local)"
-./coach/scripts/first_test.sh
-
-echo ""
-echo "3) Prochaine étape mod Civ5"
-echo "- Copier le contenu de mod/ dans votre dossier MODS Civ5"
-echo "- Suivre mod/README.md pour le test en jeu"
+echo "3) Lancer le coach installé"
+echo "   cd ~/Applications/MyTalleyrandCoach/coach"
+echo "   .venv/bin/python src/main.py"
