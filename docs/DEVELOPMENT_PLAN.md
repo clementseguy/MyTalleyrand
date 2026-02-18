@@ -160,3 +160,33 @@ Pour chaque US livrée :
 - Pas de merge sans tests verts.
 - Tracer les décisions techniques dans la documentation.
 - Prioriser la stabilité avant le polish visuel.
+
+
+## 4.1 Exécution détaillée des phases 2, 3, 4 et 5 (dépendances)
+
+
+### Phase 2 — Intégration LLM (dépend de Phase 1)
+1. [x] Implémenter un client LLM avec sortie JSON stricte.
+2. [x] Ajouter retry exponentiel et timeout côté provider.
+3. [x] Valider/parser la réponse vers un format normalisé (`LLMAdvice`).
+4. [x] Garder un fallback local pour continuité de service hors ligne.
+5. [x] Mettre à jour la documentation (`README.md`, `coach/README.md`, `docs/TESTING.md`).
+
+### Phase 3 — Overlay MVP (dépend de Phase 1)
+1. [x] Créer une couche overlay testable (`TalleyrandOverlay`) avec rendu texte des conseils.
+2. [x] Ajouter la persistance locale de la position et de la visibilité (`overlay_state.json`).
+3. [x] Connecter l'overlay au flux de conseils dans `main.py`.
+4. [x] Mettre à jour la documentation (`README.md`, `docs/README.md`, `docs/TESTING.md`).
+
+### Phase 4 — Logique coach (dépend de Phase 3)
+1. [x] Introduire un client LLM normalisé avec sortie structurée (`LLMAdvice`).
+2. [x] Implémenter les règles de déclenchement (tour 1 puis tous les 10 tours).
+3. [x] Produire des recommandations catégorisées (économie/science/militaire/diplomatie).
+4. [x] Persister un historique local minimal (`coach_history.json`).
+5. [x] Mettre à jour la documentation (`README.md`, `docs/README.md`, `docs/TESTING.md`).
+
+### Phase 5 — Stabilisation/recette (dépend de Phase 4)
+1. [x] Ajouter des tests unitaires dédiés overlay + logique coach.
+2. [x] Ajouter un test d'intégration watcher → coach → overlay.
+3. [x] Vérifier l'exécution globale via `pytest`.
+4. [x] Mettre à jour la documentation de validation et d'exploitation.

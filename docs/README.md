@@ -76,6 +76,15 @@ Ce répertoire contient toute la documentation du projet.
 
 **Quand l'utiliser** : Pour créer le dépôt GitHub et pousser le code
 
+
+## 🧭 Statut d'implémentation actuel
+
+- ✅ Phase 2 lancée : intégration LLM (JSON strict, retry/timeout, fallback local).
+- ✅ Phase 3 lancée : overlay MVP avec position persistante et rendu des conseils.
+- ✅ Phase 4 lancée : moteur de coaching avec déclenchement tour 1 / tous les 10 tours, catégories et historique local.
+- ✅ Phase 5 lancée : tests de stabilisation unitaires + intégration bout en bout.
+- 📌 Référence d'orchestration : `docs/DEVELOPMENT_PLAN.md`.
+
 ## 🚀 Parcours recommandé
 
 ### Pour un nouveau contributeur
