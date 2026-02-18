@@ -50,7 +50,13 @@ def main() -> int:
     history_file = config.export_dir / "coach_history.json"
     overlay_state_file = config.export_dir / "overlay_state.json"
 
-    llm_client = LLMClient(provider=config.llm_provider, model=config.llm_model)
+    llm_client = LLMClient(
+        provider=config.llm_provider,
+        model=config.llm_model,
+        timeout_seconds=config.llm_timeout_seconds,
+        max_tokens=config.llm_max_tokens,
+        temperature=config.llm_temperature,
+    )
     coaching_engine = CoachingEngine(llm_client=llm_client, history_file=history_file)
     coaching_engine.set_victory_focus(args.victory_focus)
     overlay = TalleyrandOverlay(state_file=overlay_state_file)

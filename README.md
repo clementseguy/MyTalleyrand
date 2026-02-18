@@ -140,7 +140,7 @@ Consultez [docs/TESTING.md](docs/TESTING.md) pour les instructions détaillées 
 
 ## 🚧 Statut du projet
 
-**Phase actuelle :** Phases 3, 4 et 5 lancées (overlay MVP + logique coach + stabilisation)
+**Phase actuelle :** Phases 2, 3, 4 et 5 lancées (LLM + overlay MVP + logique coach + stabilisation)
 
 ### ✅ Complété
 - Architecture hybride définie (Mod + App externe)
@@ -149,7 +149,8 @@ Consultez [docs/TESTING.md](docs/TESTING.md) pour les instructions détaillées 
 - Backlog détaillé (14 User Stories, 115 points)
 - Spécifications macOS documentées
 
-### ✅ Travaux lancés (Phases 3-5)
+### ✅ Travaux lancés (Phases 2-5)
+- **Phase 2 / US-003** : client LLM structuré (JSON strict), retry/timeout et fallback local
 - **Phase 3 / US-004** : overlay MVP avec position persistante et bascule affichage/masquage
 - **Phase 4 / US-006-007-008** : logique de déclenchement (tour 1 puis tous les 10 tours), recommandations catégorisées et historique local
 - **Phase 5 / US-014** : premiers tests d'intégration de bout en bout + validation automatisée de la chaîne watcher → coach → overlay
@@ -168,8 +169,11 @@ Voir [docs/DEVELOPMENT_PLAN.md](docs/DEVELOPMENT_PLAN.md) pour le séquencement 
 # Guide interactif de démarrage
 ./scripts/start.sh
 
-# Tests unitaires Python
+ # Tests unitaires Python
 cd coach && python3 -m pytest tests/
+
+# Premier test de lancement coach
+./coach/scripts/first_test.sh
 ```
 
 ## 🤝 Contribution

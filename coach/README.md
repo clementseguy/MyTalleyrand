@@ -101,6 +101,9 @@ Ctrl+C dans le terminal
 ```bash
 ./scripts/test.sh
 
+# Premier lancement local (sans Civ5)
+./scripts/first_test.sh
+
 # Suite phase 3/4/5
 python3 -m pytest tests/test_overlay.py tests/test_coach_engine.py tests/test_pipeline_integration.py
 
@@ -147,6 +150,6 @@ tail -f ~/talleyrand.log
 
 ---
 
-**Version :** 0.1.0  
+**Version :** 0.3.1  
 **Auteur :** Clément Séguy  
 **Licence :** À définir

@@ -162,7 +162,15 @@ Pour chaque US livrée :
 - Prioriser la stabilité avant le polish visuel.
 
 
-## 4.1 Exécution détaillée des phases 3, 4 et 5 (dépendances)
+## 4.1 Exécution détaillée des phases 2, 3, 4 et 5 (dépendances)
+
+
+### Phase 2 — Intégration LLM (dépend de Phase 1)
+1. [x] Implémenter un client LLM avec sortie JSON stricte.
+2. [x] Ajouter retry exponentiel et timeout côté provider.
+3. [x] Valider/parser la réponse vers un format normalisé (`LLMAdvice`).
+4. [x] Garder un fallback local pour continuité de service hors ligne.
+5. [x] Mettre à jour la documentation (`README.md`, `coach/README.md`, `docs/TESTING.md`).
 
 ### Phase 3 — Overlay MVP (dépend de Phase 1)
 1. [x] Créer une couche overlay testable (`TalleyrandOverlay`) avec rendu texte des conseils.

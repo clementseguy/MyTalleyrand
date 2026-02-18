@@ -10,19 +10,27 @@ Ce document décrit comment tester le mod MyTalleyrand après installation ou mo
 - Mod MyTalleyrand copié dans le dossier MODS
 - Accès aux fichiers de logs du jeu
 
-## 0. Tests automatisés coach (Phases 3-5)
+## 0. Tests automatisés coach (Phases 2-5)
 
-Depuis la mise en place des phases 3, 4 et 5, exécuter en priorité :
+Depuis la mise en place des phases 2, 3, 4 et 5, exécuter en priorité :
 
 ```bash
 cd coach
-python3 -m pytest tests/test_overlay.py tests/test_coach_engine.py tests/test_pipeline_integration.py tests/test_watcher.py tests/test_config.py tests/test_gamestate_schema.py
+python3 -m pytest tests/test_llm_client.py tests/test_overlay.py tests/test_coach_engine.py tests/test_pipeline_integration.py tests/test_watcher.py tests/test_config.py tests/test_gamestate_schema.py
 ```
 
 **Ce que ces tests couvrent**
 - Overlay MVP : persistance position/visibilité + rendu des conseils.
 - Logique coach : déclenchement tour 1 puis tous les 10 tours, historique local.
 - Intégration : chaîne watcher → coach → overlay.
+
+### 0.1 Smoke test de premier lancement
+
+```bash
+./coach/scripts/first_test.sh
+```
+
+Ce test vérifie qu'un `gamestate.json` minimal déclenche bien un conseil, avec génération de `coach_history.json`.
 
 ## 1. Tests de base (après installation)
 

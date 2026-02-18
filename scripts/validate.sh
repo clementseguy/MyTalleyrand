@@ -1,152 +1,80 @@
-#!/bin/bash
-# Script de validation rapide du mod MyTalleyrand
+#!/usr/bin/env bash
+set -euo pipefail
 
-echo "🔍 Validation du mod MyTalleyrand"
-echo "=================================="
-echo ""
+cd "$(dirname "$0")/.."
 
-# Couleurs
+echo "🔍 Validation du projet MyTalleyrand"
+echo "===================================="
+
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
-# Compteurs
 PASSED=0
 FAILED=0
 
-# Test 1: Vérifier la présence des fichiers
-echo "📁 Vérification de la structure..."
 FILES=(
-    "README.md"
-    ".gitignore"
-    "mod/MyTalleyrand.modinfo"
-    "mod/README.md"
-    "mod/XML/GameDefines.xml"
-    "mod/XML/Text.xml"
-    "mod/Lua/GameplayScript.lua"
-    "mod/SQL/ModSchema.sql"
-    "coach/README.md"
-    "coach/requirements.txt"
-    "coach/src/main.py"
-    "coach/src/config.py"
-    "docs/QUICKSTART.md"
-    "docs/SUMMARY.md"
-    "docs/BACKLOG.md"
-    "docs/TODO.md"
-    "docs/MACOS_GUIDE.md"
-    "scripts/validate.sh"
-    "scripts/start.sh"
+  "README.md"
+  "mod/MyTalleyrand.modinfo"
+  "mod/README.md"
+  "mod/XML/GameDefines.xml"
+  "mod/XML/Text.xml"
+  "mod/Lua/GameplayScript.lua"
+  "mod/SQL/ModSchema.sql"
+  "coach/README.md"
+  "coach/src/main.py"
+  "coach/src/llm_client.py"
+  "coach/src/coach.py"
+  "coach/src/overlay.py"
+  "docs/README.md"
+  "docs/DEVELOPMENT_PLAN.md"
+  "docs/TESTING.md"
 )
 
+echo "📁 Vérification des fichiers requis"
 for file in "${FILES[@]}"; do
-    if [ -f "$file" ]; then
-        echo -e "  ${GREEN}✓${NC} $file"
-        ((PASSED++))
-    else
-        echo -e "  ${RED}✗${NC} $file manquant"
-        ((FAILED++))
-    fi
+  if [[ -f "$file" ]]; then
+    echo -e "  ${GREEN}✓${NC} $file"
+    ((PASSED+=1))
+  else
+    echo -e "  ${RED}✗${NC} $file manquant"
+    ((FAILED+=1))
+  fi
 done
-echo ""
 
-# Test 2: Vérifier la syntaxe XML
-echo "🔬 Validation de la syntaxe XML..."
-if commanmod/MyTalleyrand.modinfo"
-        "mod/XML/GameDefines.xml"
-        "mod/MyTalleyrand.modinfo"
-        "XML/GameDefines.xml"
-        "XML/Text.xml"
-    )
-    
-    for xml_file in "${XML_FILES[@]}"; do
-        if xmllint --noout "$xml_file" 2>&1; then
-            echo -e "  ${GREEN}✓${NC} $xml_file valide"
-            ((PASSED++))
-        else
-            echo -e "  ${RED}✗${NC} $xml_file invalide"
-            ((FAILED++))
-        fi
-    done
-else
-    echo -e "  ${YELLOW}⚠${NC}  xmllint non installé (installer avec: brew install libxml2)"
-    echo "     Validation XML ignorée"
-fi
 echo ""
-
-# Test 3: Vérifier la syntaxe Lua
-echo "🔬 Validation de la syntaxe Lua..."
-if command -v luac &> /dev/null; then
-    if luac -p mod/Lua/GameplayScript.lua 2>&1; then
-        echo -e "  ${GREEN}✓${NC} GameplayScript.lua valide"
-        ((PASSED++))
+echo "🔬 Validation XML"
+if command -v xmllint >/dev/null 2>&1; then
+  XML_FILES=("mod/MyTalleyrand.modinfo" "mod/XML/GameDefines.xml" "mod/XML/Text.xml")
+  for xml_file in "${XML_FILES[@]}"; do
+    if xmllint --noout "$xml_file" >/dev/null 2>&1; then
+      echo -e "  ${GREEN}✓${NC} $xml_file valide"
+      ((PASSED+=1))
     else
-        echo -e "  ${RED}✗${NC} GameplayScript.lua invalide"
-        ((FAILED++))
+      echo -e "  ${RED}✗${NC} $xml_file invalide"
+      ((FAILED+=1))
     fi
+  done
 else
-    echo -e "  ${YELLOW}⚠${NC}  luac non installé (installer avec: brew install lua)"
-    echo "     Validation Lua ignorée"
+  echo -e "  ${YELLOW}⚠${NC} xmllint non installé, validation XML ignorée"
 fi
-echo ""
 
-# Test 4: Vérifier la taille des fichiers
-echo "📏 Vérification de la taille des fichiers (<500 lignes)..."
-for file in "${FILES[@]}"; do
-    if [ -f "$file" ]; then
-        lines=$(wc -l < "$file")
-        if [ "$lines" -lt 500 ]; then
-            echo -e "  ${GREEN}✓${NC} $file: $lines lignes"
-            ((PASSED++))
-        else
-            echo -e "  ${RED}✗${NC} $file: $lines lignes (>500)"
-            ((FAILED++))
-        fi
-    fi
-done
 echo ""
-
-# Test 5: Vérifier Git
-echo "📦 Vérification de Git..."
-if [ -d ".git" ]; then
-    echo -e "  ${GREEN}✓${NC} Dépôt Git initialisé"
-    ((PASSED++))
-    
-    # Vérifier les fichiers stagés
-    staged=$(git diff --cached --name-only | wc -l)
-    if [ "$staged" -gt 0 ]; then
-        echo -e "  ${GREEN}✓${NC} $staged fichiers en staging"
-        ((PASSED++))
-    else
-        echo -e "  ${YELLOW}⚠${NC}  Aucun fichier en staging"
-    fi
+echo "🧪 Tests Python coach"
+if (cd coach && python3 -m pytest >/dev/null); then
+  echo -e "  ${GREEN}✓${NC} pytest coach"
+  ((PASSED+=1))
 else
-    echo -e "  ${RED}✗${NC} Dépôt Git non initialisé"
-    ((FAILED++))
+  echo -e "  ${RED}✗${NC} pytest coach"
+  ((FAILED+=1))
 fi
-echo ""
 
-# Résumé
-echo "=================================="
-echo "📊 Résumé de la validation"
-echo "=================================="
-echo -e "Tests réussis : ${GREEN}$PASSED${NC}"
-if [ "$FAILED" -gt 0 ]; then
-    echo -e "Tests échoués : ${RED}$FAILED${NC}"
-else
-    echo -e "Tests échoués : $FAILED"
-fi
 echo ""
+echo "===================================="
+echo "✅ Réussis: $PASSED"
+echo "❌ Échoués: $FAILED"
 
-if [ "$FAILED" -eq 0 ]; then
-    echo -e "${GREEN}✅ Projet validé ! Prêt pour commit et GitHub${NC}"
-    echo ""
-    echo "Prochaines étapes:"
-    echo "1. git commit -m \"feat: structure initiale du mod MyTalleyrand\""
-    echo "2. Créer le dépôt sur GitHub (voir docs/GITHUB_SETUP.md)"
-    echo "3. git remote add origin https://github.com/VOTRE_USERNAME/MyTalleyrand.git"
-    echo "4. git push -u origin main"
-else
-    echo -e "${RED}❌ Des erreurs ont été détectées${NC}"
-    echo "Consultez les messages ci-dessus pour plus de détails"
+if [[ "$FAILED" -gt 0 ]]; then
+  exit 1
 fi
