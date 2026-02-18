@@ -52,6 +52,29 @@ def test_load_config_with_environment_overrides(tmp_path: Path, monkeypatch):
     assert config.overlay_width == 777
 
 
+def test_load_config_reads_user_file(tmp_path: Path):
+    settings_path = _settings_template(tmp_path)
+    user_settings_path = tmp_path / "coach.user.json"
+    user_settings_path.write_text(
+        json.dumps(
+            {
+                "llm": {
+                    "api_key": "sk-test",
+                    "system_prompt": "Tu es un coach test.",
+                    "user_prompt_template": "Focus={victory_focus}; State={game_state_json}",
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    config = load_config(settings_path, user_settings_path=user_settings_path)
+
+    assert config.llm_api_key == "sk-test"
+    assert config.llm_system_prompt == "Tu es un coach test."
+    assert config.llm_user_prompt_template.startswith("Focus=")
+
+
 def test_validate_config_rejects_invalid_values(tmp_path: Path):
     settings_path = _settings_template(tmp_path)
     config = load_config(settings_path)
@@ -61,3 +84,15 @@ def test_validate_config_rejects_invalid_values(tmp_path: Path):
 
     assert errors
     assert "Overlay opacity must be in (0, 1]" in errors
+
+
+def test_validate_config_rejects_invalid_prompt_template(tmp_path: Path):
+    settings_path = _settings_template(tmp_path)
+    config = load_config(settings_path)
+    bad_config = config.__class__(
+        **{**config.__dict__, "llm_user_prompt_template": "Focus only = {victory_focus}"}
+    )
+
+    errors = validate_config(bad_config)
+
+    assert "LLM user prompt template must include {game_state_json}" in errors

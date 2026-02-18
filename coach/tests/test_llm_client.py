@@ -54,3 +54,16 @@ def test_generate_advice_parses_remote_payload(monkeypatch):
     assert advice.objective_10_turns == remote_payload["objective_10_turns"]
     assert advice.confidence == 82
     assert advice.categories["science"] == ["S1"]
+
+
+def test_build_prompt_uses_custom_template():
+    client = LLMClient(
+        provider="openai",
+        model="gpt-4o-mini",
+        user_prompt_template="F={victory_focus} | G={game_state_json}",
+    )
+
+    prompt = client._build_prompt(_payload(), victory_focus="science")
+
+    assert prompt.startswith("F=science")
+    assert '"turn_id": 1' in prompt

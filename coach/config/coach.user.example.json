@@ -1,0 +1,7 @@
+{
+  "llm": {
+    "api_key": "<OPENAI_API_KEY>",
+    "system_prompt": "Tu es Talleyrand, coach stratégique pour Civilization V. Réponds en français avec un JSON strict contenant objective_10_turns, priority_actions, risks, confidence et categories.",
+    "user_prompt_template": "Objectif de victoire: {victory_focus}\nEtat de jeu (JSON): {game_state_json}\nDonne un objectif 10 tours, 3-5 actions prioritaires, risques, confiance (0-100), et actions catégorisées (economie/science/militaire/diplomatie)."
+  }
+}

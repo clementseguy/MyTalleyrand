@@ -13,6 +13,17 @@ from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_ex
 logger = logging.getLogger(__name__)
 
 _ALLOWED_CATEGORIES = {"economie", "science", "militaire", "diplomatie"}
+_DEFAULT_SYSTEM_PROMPT = (
+    "Tu es Talleyrand, coach stratégique pour Civ5. "
+    "Réponds UNIQUEMENT en JSON valide avec les clés: "
+    "objective_10_turns, priority_actions, risks, confidence, categories."
+)
+_DEFAULT_USER_PROMPT_TEMPLATE = (
+    "Objectif de victoire: {victory_focus}\n"
+    "Etat de jeu (JSON): {game_state_json}\n"
+    "Donne un objectif 10 tours, 3-5 actions prioritaires, risques, confiance (0-100), "
+    "et actions catégorisées (economie/science/militaire/diplomatie)."
+)
 
 
 @dataclass(frozen=True)
@@ -39,12 +50,18 @@ class LLMClient:
         timeout_seconds: int = 15,
         max_tokens: int = 500,
         temperature: float = 0.2,
+        system_prompt: str = _DEFAULT_SYSTEM_PROMPT,
+        user_prompt_template: str = _DEFAULT_USER_PROMPT_TEMPLATE,
+        api_key: str | None = None,
     ):
         self.provider = provider
         self.model = model
         self.timeout_seconds = timeout_seconds
         self.max_tokens = max_tokens
         self.temperature = temperature
+        self.system_prompt = system_prompt.strip() or _DEFAULT_SYSTEM_PROMPT
+        self.user_prompt_template = user_prompt_template
+        self.api_key = api_key
 
     def generate_advice(self, game_state: dict[str, Any], victory_focus: str) -> LLMAdvice:
         try:
@@ -64,7 +81,7 @@ class LLMClient:
         if self.provider != "openai":
             raise RuntimeError(f"provider non supporté: {self.provider}")
 
-        api_key = os.getenv("TALLEYRAND_OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")
+        api_key = self.api_key or os.getenv("TALLEYRAND_OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")
         if not api_key:
             raise RuntimeError("clé API OpenAI absente")
 
@@ -83,16 +100,7 @@ class LLMClient:
             input=[
                 {
                     "role": "system",
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": (
-                                "Tu es Talleyrand, coach stratégique pour Civ5. "
-                                "Réponds UNIQUEMENT en JSON valide avec les clés: "
-                                "objective_10_turns, priority_actions, risks, confidence, categories."
-                            ),
-                        }
-                    ],
+                    "content": [{"type": "text", "text": self.system_prompt}],
                 },
                 {"role": "user", "content": [{"type": "text", "text": prompt}]},
             ],
@@ -107,13 +115,10 @@ class LLMClient:
         except json.JSONDecodeError as exc:
             raise ValueError(f"JSON LLM invalide: {exc}") from exc
 
-    @staticmethod
-    def _build_prompt(game_state: dict[str, Any], victory_focus: str) -> str:
-        return (
-            f"Objectif de victoire: {victory_focus}\n"
-            f"Etat de jeu (JSON): {json.dumps(game_state, ensure_ascii=False)}\n"
-            "Donne un objectif 10 tours, 3-5 actions prioritaires, risques, confiance (0-100), "
-            "et actions catégorisées (economie/science/militaire/diplomatie)."
+    def _build_prompt(self, game_state: dict[str, Any], victory_focus: str) -> str:
+        return self.user_prompt_template.format(
+            victory_focus=victory_focus,
+            game_state_json=json.dumps(game_state, ensure_ascii=False),
         )
 
     def _parse_remote_payload(self, payload: dict[str, Any]) -> LLMAdvice:

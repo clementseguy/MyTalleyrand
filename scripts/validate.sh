@@ -16,13 +16,16 @@ FAILED=0
 
 FILES=(
   "README.md"
+  "LICENSE"
   "mod/MyTalleyrand.modinfo"
   "mod/README.md"
   "mod/XML/GameDefines.xml"
   "mod/XML/Text.xml"
   "mod/Lua/GameplayScript.lua"
   "mod/SQL/ModSchema.sql"
+  "script/install_macos.sh"
   "coach/README.md"
+  "coach/config/coach.user.example.json"
   "coach/src/main.py"
   "coach/src/llm_client.py"
   "coach/src/coach.py"

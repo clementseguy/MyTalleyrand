@@ -56,6 +56,9 @@ def main() -> int:
         timeout_seconds=config.llm_timeout_seconds,
         max_tokens=config.llm_max_tokens,
         temperature=config.llm_temperature,
+        system_prompt=config.llm_system_prompt,
+        user_prompt_template=config.llm_user_prompt_template,
+        api_key=config.llm_api_key,
     )
     coaching_engine = CoachingEngine(llm_client=llm_client, history_file=history_file)
     coaching_engine.set_victory_focus(args.victory_focus)
