@@ -31,29 +31,17 @@ Deux jalons distincts pilotent les priorités de ce backlog — ne pas les confo
 | Métrique | Valeur |
 | --- | --- |
 | **Total User Stories** | 22 |
-<<<<<<< HEAD
 | **US Terminées** | 6 |
 | **US En cours (partielles)** | 6 |
 | **US À faire** | 9 |
 | **US Won't** | 1 |
 | **Progression** | 6/21 actives — 29% |
-=======
-| **US Terminées** | 7 |
-| **US En cours (partielles)** | 5 |
-| **US À faire** | 9 |
-| **US Won't** | 1 |
-| **Progression** | 7/21 actives — 33% |
->>>>>>> 8eb4356cef7e943d6b67e60c3936b071b1813547
 
 ### Répartition par Epic
 
 | Epic | US | Jalon dominant | Statut |
 | --- | --- | --- | --- |
-<<<<<<< HEAD
 | EPIC 1 : Fondations techniques | 5 | MVP | ✅ 2/5 terminées, 🔄 3/5 partielles |
-=======
-| EPIC 1 : Fondations techniques | 5 | MVP | ✅ 3/5 terminées, 🔄 2/5 partielles |
->>>>>>> 8eb4356cef7e943d6b67e60c3936b071b1813547
 | EPIC 2 : Interface utilisateur | 3 | MVP | 🔄 2/3 partielles, 📝 1/3 à faire |
 | EPIC 3 : Logique du coach | 5 | MVP | ✅ 2/5 terminées, 🔄 1/5 partielle, 📝 2/5 à faire |
 | EPIC 4 : Maîtrise du budget & optimisation | 6 | MVP (budget) / Could | 📝 5/6 à faire, ⚪ 1 Won't |
