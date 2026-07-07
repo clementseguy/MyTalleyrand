@@ -58,3 +58,43 @@ def test_build_prompt_uses_custom_template():
 
     assert prompt.startswith("F=science")
     assert '"turn_id": 1' in prompt
+
+
+def test_generate_advice_notifies_fallback_status_when_remote_fails(monkeypatch):
+    statuses = []
+    client = LLMClient(provider="openai", model="gpt-4o-mini", status_callback=statuses.append)
+
+    def boom(*_args, **_kwargs):
+        raise RuntimeError("offline")
+
+    monkeypatch.setattr(client, "_generate_remote_advice_raw", boom)
+
+    advice = client.generate_advice(make_gamestate(), victory_focus="science")
+
+    assert advice.priority_actions
+    assert len(statuses) == 1
+    assert statuses[0].title == "Fallback LLM activé"
+    assert "prochain tour" in statuses[0].suggestion
+
+
+def test_remote_retry_notifies_reconnection_status():
+    statuses = []
+    client = LLMClient(provider="openai", model="gpt-4o-mini", status_callback=statuses.append, api_key="test")
+
+    class FailingResponses:
+        def create(self, **_kwargs):
+            raise TimeoutError("timeout réseau")
+
+    class FailingClient:
+        responses = FailingResponses()
+
+    client._openai_client = FailingClient()
+
+    advice = client.generate_advice(make_gamestate(), victory_focus="science")
+
+    assert advice.priority_actions
+    assert [status.title for status in statuses[:2]] == [
+        "Reconnexion LLM en cours",
+        "Reconnexion LLM en cours",
+    ]
+    assert statuses[-1].title == "Fallback LLM activé"

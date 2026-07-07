@@ -57,3 +57,21 @@ def test_overlay_renders_status_message(tmp_path: Path):
     assert "Problème gamestate" in overlay.last_rendered_text
     assert "Action suggérée" in overlay.last_rendered_text
     assert "mod MyTalleyrand" in overlay.last_rendered_text
+
+
+def test_overlay_keeps_fallback_explanation_with_local_advice(tmp_path: Path):
+    overlay = TalleyrandOverlay(state_file=tmp_path / "state.json")
+    advice = LLMAdvice(
+        objective_10_turns="Tenir la position.",
+        priority_actions=["Action A", "Action B", "Action C"],
+        risks=[],
+        confidence=70,
+        categories={},
+        source="local_fallback",
+    )
+
+    overlay.show_advice(advice)
+
+    assert "Fallback LLM activé" in overlay.last_rendered_text
+    assert "prochain tour analysé" in overlay.last_rendered_text
+    assert "Action A" in overlay.last_rendered_text
