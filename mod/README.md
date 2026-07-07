@@ -35,6 +35,11 @@ Le script Lua écrit de manière atomique :
   "turn_id": 42,
   "turn_number": 42,
   "timestamp_utc": "2026-01-01T12:00:00Z",
+  "game_parameters": {
+    "difficulty": "HANDICAP_KING",
+    "map_size": "WORLDSIZE_STANDARD",
+    "game_speed": "GAMESPEED_STANDARD"
+  },
   "player": {
     "id": 0,
     "civilization": "CIVILIZATION_FRANCE",
@@ -43,7 +48,13 @@ Le script Lua écrit de manière atomique :
   "resources": {
     "gold": 350,
     "science": 120
-  }
+  },
+  "cities": [
+    {"id": 1, "name": "Paris", "population": 3, "production": "Monument"}
+  ],
+  "units": [
+    {"id": 1, "type": "UNIT_WARRIOR", "x": 12, "y": 8, "moves": 2}
+  ]
 }
 ```
 

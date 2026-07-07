@@ -13,7 +13,7 @@ from src.coach import CoachingEngine
 from src.config import ConfigError, load_config, validate_config
 from src.llm_client import LLMClient
 from src.overlay import OverlaySettings, TalleyrandOverlay
-from src.preferences import PreferencesStore
+from src.preferences import PreferencesStore, VICTORY_FOCUSES
 from src.watcher import GameStateIssue, GameStateWatcher
 
 logger = logging.getLogger(__name__)
@@ -34,7 +34,7 @@ def main() -> int:
     parser.add_argument(
         "--victory-focus",
         default=None,
-        choices=["domination", "science", "culture", "diplomatie", "score", "équilibrée"],
+        choices=VICTORY_FOCUSES,
         help="objectif de victoire (phase 4)",
     )
     args = parser.parse_args()
@@ -84,6 +84,7 @@ def main() -> int:
         llm_client=llm_client,
         history_file=history_file,
         preferences_store=preferences_store,
+        analysis_interval_turns=config.analysis_interval_turns,
     )
     if args.victory_focus is not None:
         coaching_engine.set_victory_focus(args.victory_focus)

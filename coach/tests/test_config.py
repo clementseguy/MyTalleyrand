@@ -24,6 +24,7 @@ def _settings_template(tmp_path: Path) -> Path:
             "temperature": 0.7,
             "timeout_seconds": 15,
         },
+        "coach": {"analysis_interval_turns": 10},
         "overlay": {"width": 400, "height": 600, "opacity": 0.9},
     }
     settings_path = tmp_path / "settings.json"
@@ -39,17 +40,20 @@ def test_load_config_reads_json(tmp_path: Path):
     assert config.schema_version == "0.1.0"
     assert config.llm_provider == "openai"
     assert config.overlay_width == 400
+    assert config.analysis_interval_turns == 10
 
 
 def test_load_config_with_environment_overrides(tmp_path: Path, monkeypatch):
     settings_path = _settings_template(tmp_path)
     monkeypatch.setenv("TALLEYRAND_LLM_MODEL", "gpt-test")
     monkeypatch.setenv("TALLEYRAND_OVERLAY_WIDTH", "777")
+    monkeypatch.setenv("TALLEYRAND_ANALYSIS_INTERVAL_TURNS", "5")
 
     config = load_config(settings_path)
 
     assert config.llm_model == "gpt-test"
     assert config.overlay_width == 777
+    assert config.analysis_interval_turns == 5
 
 
 def test_load_config_reads_user_file(tmp_path: Path, monkeypatch):

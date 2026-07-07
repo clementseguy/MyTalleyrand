@@ -31,11 +31,11 @@ Deux jalons distincts pilotent les priorités de ce backlog — ne pas les confo
 | Métrique | Valeur |
 | --- | --- |
 | **Total User Stories** | 22 |
-| **US Terminées** | 12 |
-| **US En cours (partielles)** | 2 |
-| **US À faire** | 7 |
+| **US Terminées** | 15 |
+| **US En cours (partielles)** | 0 |
+| **US À faire** | 6 |
 | **US Won't** | 1 |
-| **Progression** | 12/21 actives — 57% |
+| **Progression** | 15/21 actives — 71% |
 
 ### Répartition par Epic
 
@@ -342,13 +342,13 @@ Deux jalons distincts pilotent les priorités de ce backlog — ne pas les confo
 > En tant que **joueur**, je veux **recevoir des actions concrètes et catégorisées**, afin de **progresser vers mon objectif**.
 
 #### Tâches techniques
-- Prompt structuré → 3-5 actions catégorisées (construction/science/diplomatie/militaire/économie/culture)
+- Prompt structuré → 3-5 actions catégorisées (construction/science/diplomatie/militaire/économie/culture) avec justification courte
 - Affichage checklist interactive, tooltips explicatifs (pourquoi cette action)
 - Suivi de progression (% actions réalisées)
 
 #### Critères d'acceptation
 ✅ 3-5 actions par analyse, claires et réalisables in-game
-✅ Catégorisées, priorisées, avec justification courte
+✅ Catégorisées, affichées dans l’overlay, priorisées, avec justification courte
 
 #### Dépendances
 - US-007

@@ -26,13 +26,16 @@ def test_overlay_renders_objective_and_actions(tmp_path: Path):
         priority_actions=["Action A", "Action B", "Action C"],
         risks=["Risque"],
         confidence=80,
-        categories={"science": ["A"]},
+        categories={"science": ["A"], "construction": ["Action A"]},
+        action_justifications={"Action A": "Accélère les universités."},
     )
 
     overlay.show_advice(advice)
 
     assert "Objectif (10 tours)" in overlay.last_rendered_text
     assert "Action A" in overlay.last_rendered_text
+    assert "Pourquoi: Accélère les universités." in overlay.last_rendered_text
+    assert "construction" in overlay.last_rendered_text
 
 
 def test_overlay_survives_corrupt_state_file(tmp_path: Path):

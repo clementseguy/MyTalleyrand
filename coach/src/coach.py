@@ -29,19 +29,20 @@ class CoachingEngine:
         llm_client: LLMClient,
         history_file: Path,
         preferences_store: PreferencesStore | None = None,
+        analysis_interval_turns: int = 10,
     ):
         self.llm_client = llm_client
         self.history_file = history_file
         self.preferences_store = preferences_store
+        self.analysis_interval_turns = max(1, int(analysis_interval_turns))
         self.preferences = preferences_store.load() if preferences_store is not None else UserPreferences()
         self.victory_focus = self.preferences.normalized_focus()
 
-    @staticmethod
-    def get_decision(turn_number: int) -> CoachingDecision:
+    def get_decision(self, turn_number: int) -> CoachingDecision:
         if turn_number == 1:
             return CoachingDecision(True, "tour_1_initialisation")
-        if turn_number % 10 == 0:
-            return CoachingDecision(True, "cycle_10_tours")
+        if turn_number % self.analysis_interval_turns == 0:
+            return CoachingDecision(True, f"cycle_{self.analysis_interval_turns}_tours")
         return CoachingDecision(False, "hors_cycle")
 
     def set_victory_focus(self, focus: str) -> None:
@@ -112,13 +113,18 @@ class CoachingEngine:
         player = game_state.get("player")
         cities = game_state.get("cities")
         units = game_state.get("units")
+        game_parameters = game_state.get("game_parameters") or game_state.get("game") or game_state.get("settings")
         reasons: list[str] = []
         if not isinstance(player, dict) or not player:
             reasons.append("identité du joueur absente")
         if cities is not None and isinstance(cities, list) and len(cities) == 0:
             reasons.append("aucune ville détectée")
-        if cities is None and units is None and int(game_state.get("turn_number", 1)) <= 1:
-            reasons.append("données villes/unités non encore exportées")
+        if cities is None or units is None:
+            reasons.append("données villes/unités non exportées")
+        if isinstance(cities, list) and len(cities) == 0 and int(game_state.get("turn_number", 1)) > 1:
+            reasons.append("aucune ville détectée après le début de partie")
+        if not isinstance(game_parameters, dict):
+            reasons.append("paramètres de partie non exportés")
         if not reasons:
             return None
         return LLMAdvice(
@@ -130,6 +136,11 @@ class CoachingEngine:
             ],
             risks=["Conseils volontairement prudents car le contexte disponible est incomplet."],
             confidence=35,
-            categories={"economie": [], "science": [], "militaire": [], "diplomatie": []},
+            categories={"construction": [], "economie": [], "science": [], "militaire": [], "diplomatie": [], "culture": []},
+            action_justifications={
+                "Fonder ou sélectionner la capitale si ce n'est pas encore fait.": "Sans ville détectée, le coach ne peut pas prioriser production, science ou économie.",
+                "Attendre le prochain export de tour pour inclure villes, unités et paramètres de partie.": "Les paramètres exportés conditionnent les recommandations utiles.",
+                "Vérifier que le mod MyTalleyrand exporte bien les sections détaillées du gamestate.": "Un export incomplet provoquerait des conseils trop génériques.",
+            },
             source="context_insufficient",
         )

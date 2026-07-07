@@ -18,7 +18,7 @@ DEFAULT_SYSTEM_PROMPT = (
     "Tu es Talleyrand, coach stratégique pour Civilization V. "
     "Réponds de manière actionnable et concise en français. "
     "Tu dois impérativement retourner un JSON valide avec les clés: "
-    "objective_10_turns, priority_actions, risks, confidence, categories."
+    "objective_10_turns, priority_actions, action_justifications, risks, confidence, categories."
 )
 
 logger = logging.getLogger(__name__)
@@ -32,7 +32,7 @@ DEFAULT_USER_PROMPT_TEMPLATE = (
     "Objectif de victoire: {victory_focus}\n"
     "Etat de jeu (JSON): {game_state_json}\n"
     "Donne un objectif 10 tours, 3-5 actions prioritaires, risques, confiance (0-100), "
-    "et actions catégorisées (economie/science/militaire/diplomatie)."
+    "actions catégorisées (construction/economie/science/militaire/diplomatie/culture), et justification courte par action."
 )
 
 
@@ -56,6 +56,7 @@ class AppConfig:
     overlay_width: int
     overlay_height: int
     overlay_opacity: float
+    analysis_interval_turns: int
 
 
 def _expand(path_value: str) -> Path:
@@ -132,6 +133,9 @@ def load_config(settings_path: Path | None = None, user_settings_path: Path | No
     if not isinstance(llm_user, dict):
         raise ConfigError(f"Configuration utilisateur invalide: section 'llm' invalide dans {configured_user_path}")
     overlay = _require_mapping(settings, "overlay", resolved_settings_path)
+    coach = settings.get("coach", {})
+    if coach and not isinstance(coach, dict):
+        raise ConfigError(f"Configuration invalide: section 'coach' invalide dans {resolved_settings_path}")
 
     system_prompt = _env_or_default(
         "TALLEYRAND_LLM_SYSTEM_PROMPT",
@@ -220,6 +224,11 @@ def load_config(settings_path: Path | None = None, user_settings_path: Path | No
             _require_key(overlay, "opacity", "overlay", resolved_settings_path),
             float,
         ),
+        analysis_interval_turns=_env_or_default(
+            "TALLEYRAND_ANALYSIS_INTERVAL_TURNS",
+            coach.get("analysis_interval_turns", 10),
+            int,
+        ),
     )
     return config
 
@@ -238,6 +247,8 @@ def validate_config(config: AppConfig) -> list[str]:
         errors.append("LLM timeout_seconds must be positive")
     if not (0 <= config.llm_temperature <= 2):
         errors.append("LLM temperature must be between 0 and 2")
+    if config.analysis_interval_turns <= 0:
+        errors.append("Analysis interval must be positive")
     if "{victory_focus}" not in config.llm_user_prompt_template:
         errors.append("LLM user prompt template must include {victory_focus}")
     if "{game_state_json}" not in config.llm_user_prompt_template:

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from typing import Any, Callable
 
 from openai import APIConnectionError, APIError, APITimeoutError, OpenAI, RateLimitError
@@ -14,7 +14,7 @@ from src.config import DEFAULT_SYSTEM_PROMPT, DEFAULT_USER_PROMPT_TEMPLATE
 
 logger = logging.getLogger(__name__)
 
-_ALLOWED_CATEGORIES = {"economie", "science", "militaire", "diplomatie"}
+_ALLOWED_CATEGORIES = {"construction", "economie", "science", "militaire", "diplomatie", "culture"}
 _RETRYABLE_OPENAI_EXCEPTIONS = (APITimeoutError, APIConnectionError, RateLimitError, APIError)
 
 
@@ -27,10 +27,15 @@ class LLMAdvice:
     risks: list[str]
     confidence: int
     categories: dict[str, list[str]]
+    action_justifications: dict[str, str] = field(default_factory=dict)
     source: str = "remote"
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
+
+
+class LLMResponseError(ValueError):
+    """Réponse distante reçue mais inutilisable (format/schema)."""
 
 
 @dataclass(frozen=True)
@@ -92,6 +97,16 @@ class LLMClient:
         try:
             raw = self._generate_remote_advice_raw(game_state=game_state, victory_focus=victory_focus)
             return self._parse_remote_payload(raw)
+        except LLMResponseError as exc:
+            logger.warning("⚠️ Réponse LLM invalide (%s), fallback local activé", exc)
+            self._notify_status(
+                LLMStatus(
+                    title="Réponse LLM invalide",
+                    message="Le provider a répondu, mais le format ne respecte pas le schéma attendu. Un conseil local est affiché.",
+                    suggestion="Réessayez au prochain tour analysé ; si le problème persiste, vérifiez les prompts personnalisés.",
+                )
+            )
+            return self._generate_fallback_advice(game_state=game_state, victory_focus=victory_focus)
         except Exception as exc:
             logger.warning("⚠️ LLM distant indisponible (%s), fallback local activé", exc)
             self._notify_status(
@@ -146,52 +161,58 @@ class LLMClient:
 
         content = getattr(response, "output_text", "")
         if not content:
-            raise ValueError("réponse vide du provider")
+            raise LLMResponseError("réponse vide du provider")
 
         try:
             return json.loads(content)
         except json.JSONDecodeError as exc:
-            raise ValueError(f"JSON LLM invalide: {exc}") from exc
+            raise LLMResponseError(f"JSON LLM invalide: {exc}") from exc
 
     def _build_prompt(self, game_state: dict[str, Any], victory_focus: str) -> str:
         return self.user_prompt_template.format(
             victory_focus=victory_focus,
-            game_state_json=json.dumps(game_state, ensure_ascii=False),
+            game_state_json=json.dumps(_sanitize_game_state_for_prompt(game_state), ensure_ascii=False),
         )
 
     def _parse_remote_payload(self, payload: dict[str, Any]) -> LLMAdvice:
         required = ["objective_10_turns", "priority_actions", "risks", "confidence", "categories"]
         missing = [key for key in required if key not in payload]
         if missing:
-            raise ValueError(f"clés manquantes dans la réponse LLM: {', '.join(missing)}")
+            raise LLMResponseError(f"clés manquantes dans la réponse LLM: {', '.join(missing)}")
 
         objective = str(payload["objective_10_turns"]).strip()
         actions = payload["priority_actions"]
         risks = payload["risks"]
-        confidence = int(payload["confidence"])
+        try:
+            confidence = int(payload["confidence"])
+        except (TypeError, ValueError) as exc:
+            raise LLMResponseError("confidence doit être un entier") from exc
         categories = payload["categories"]
 
         if not objective:
-            raise ValueError("objective_10_turns vide")
+            raise LLMResponseError("objective_10_turns vide")
         if not isinstance(actions, list) or not (3 <= len(actions) <= 5):
-            raise ValueError("priority_actions doit contenir entre 3 et 5 éléments")
+            raise LLMResponseError("priority_actions doit contenir entre 3 et 5 éléments")
         if not isinstance(risks, list):
-            raise ValueError("risks doit être une liste")
+            raise LLMResponseError("risks doit être une liste")
         if not isinstance(categories, dict):
-            raise ValueError("categories doit être un objet")
+            raise LLMResponseError("categories doit être un objet")
         if not (0 <= confidence <= 100):
-            raise ValueError("confidence doit être entre 0 et 100")
+            raise LLMResponseError("confidence doit être entre 0 et 100")
 
         normalized_categories: dict[str, list[str]] = {}
         for category in _ALLOWED_CATEGORIES:
             raw_items = categories.get(category, [])
             if not isinstance(raw_items, list):
-                raise ValueError(f"categories.{category} doit être une liste")
+                raise LLMResponseError(f"categories.{category} doit être une liste")
             normalized_categories[category] = [str(item).strip() for item in raw_items if str(item).strip()]
 
         normalized_actions = [str(item).strip() for item in actions if str(item).strip()][:5]
         if len(normalized_actions) < 3:
-            raise ValueError("priority_actions normalisé contient moins de 3 actions")
+            raise LLMResponseError("priority_actions normalisé contient moins de 3 actions")
+
+        raw_justifications = payload.get("action_justifications", {})
+        action_justifications = _normalize_action_justifications(raw_justifications, normalized_actions)
 
         return LLMAdvice(
             objective_10_turns=objective,
@@ -199,6 +220,7 @@ class LLMClient:
             risks=[str(item).strip() for item in risks if str(item).strip()],
             confidence=confidence,
             categories=normalized_categories,
+            action_justifications=action_justifications,
             source="remote",
         )
 
@@ -223,10 +245,12 @@ class LLMClient:
             actions.append("Sécuriser une route commerciale rentable dès que possible.")
 
         categories = {
+            "construction": ["Prioriser un bâtiment utile dans la capitale"],
             "economie": ["Optimiser les routes commerciales", "Limiter les dépenses non critiques"],
             "science": ["Accélérer les bâtiments scientifiques", "Sécuriser des accords de recherche"],
             "militaire": ["Maintenir une armée dissuasive", "Renforcer les frontières exposées"],
             "diplomatie": ["Éviter les guerres multiples", "Négocier des échanges favorables"],
+            "culture": ["Stabiliser le bonheur et les politiques sociales"],
         }
 
         return LLMAdvice(
@@ -235,5 +259,57 @@ class LLMClient:
             risks=["Retard scientifique", "Économie insuffisante pour soutenir l'expansion"],
             confidence=78,
             categories=categories,
+            action_justifications={action: "Justification locale basée sur les ressources et le focus de victoire." for action in actions[:5]},
             source="local_fallback",
         )
+
+
+def _normalize_action_justifications(raw: Any, actions: list[str]) -> dict[str, str]:
+    if not isinstance(raw, dict):
+        return {}
+    normalized: dict[str, str] = {}
+    for action in actions:
+        value = raw.get(action)
+        if value is not None and str(value).strip():
+            normalized[action] = str(value).strip()[:240]
+    return normalized
+
+
+def _sanitize_game_state_for_prompt(game_state: dict[str, Any]) -> dict[str, Any]:
+    resources = game_state.get("resources") if isinstance(game_state.get("resources"), dict) else {}
+    params = game_state.get("game_parameters") or game_state.get("game") or game_state.get("settings")
+    sanitized: dict[str, Any] = {
+        "schema_version": str(game_state.get("schema_version", ""))[:16],
+        "turn_id": int(game_state.get("turn_id", 0)),
+        "turn_number": int(game_state.get("turn_number", 0)),
+        "resources": {
+            "gold": int(resources.get("gold", 0)),
+            "science": int(resources.get("science", 0)),
+        },
+        "game_parameters": _sanitize_mapping(params, {"difficulty", "map_size", "game_speed"}),
+        "cities": _sanitize_collection(game_state.get("cities"), {"id", "name", "population", "production"}),
+        "units": _sanitize_collection(game_state.get("units"), {"id", "type", "x", "y", "moves"}),
+    }
+    player = game_state.get("player") if isinstance(game_state.get("player"), dict) else {}
+    sanitized["player"] = _sanitize_mapping(player, {"id", "civilization", "leader"})
+    return sanitized
+
+
+def _sanitize_mapping(value: Any, allowed: set[str]) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        return {}
+    return {str(key): _sanitize_scalar(raw) for key, raw in value.items() if str(key) in allowed}
+
+
+def _sanitize_collection(value: Any, allowed: set[str], limit: int = 20) -> list[dict[str, Any]]:
+    if not isinstance(value, list):
+        return []
+    return [_sanitize_mapping(item, allowed) for item in value[:limit] if isinstance(item, dict)]
+
+
+def _sanitize_scalar(value: Any) -> Any:
+    if isinstance(value, bool) or value is None:
+        return value
+    if isinstance(value, (int, float)):
+        return value
+    return str(value).replace("\n", " ").replace("\r", " ")[:120]

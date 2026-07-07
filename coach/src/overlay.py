@@ -118,6 +118,7 @@ class QtOverlayBackend:
 
         self._content = QLabel("En attente d'un conseil…")
         self._content.setObjectName("content")
+        self._content.setTextFormat(Qt.TextFormat.PlainText)
         self._content.setWordWrap(True)
         self._content.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         layout.addWidget(self._content, 1)
@@ -350,7 +351,18 @@ class TalleyrandOverlay:
                 "Actions prioritaires:",
             ]
         )
-        lines.extend([f"- {action}" for action in advice.priority_actions])
+        for action in advice.priority_actions:
+            lines.append(f"- {action}")
+            justification = advice.action_justifications.get(action)
+            if justification:
+                lines.append(f"  Pourquoi: {justification}")
+        categorized_lines = []
+        for category, actions in advice.categories.items():
+            if actions:
+                categorized_lines.append(f"- {category}: {', '.join(actions)}")
+        if categorized_lines:
+            lines.append("Catégories:")
+            lines.extend(categorized_lines)
         if advice.risks:
             lines.append("Risques:")
             lines.extend([f"- {risk}" for risk in advice.risks])
