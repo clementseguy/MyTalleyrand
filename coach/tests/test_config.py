@@ -52,7 +52,7 @@ def test_load_config_with_environment_overrides(tmp_path: Path, monkeypatch):
     assert config.overlay_width == 777
 
 
-def test_load_config_reads_user_file(tmp_path: Path):
+def test_load_config_reads_user_file(tmp_path: Path, monkeypatch):
     settings_path = _settings_template(tmp_path)
     user_settings_path = tmp_path / "coach.user.json"
     user_settings_path.write_text(
@@ -68,11 +68,33 @@ def test_load_config_reads_user_file(tmp_path: Path):
         encoding="utf-8",
     )
 
+    monkeypatch.setattr("src.config.get_api_key", lambda _provider: None)
+
     config = load_config(settings_path, user_settings_path=user_settings_path)
 
     assert config.llm_api_key == "sk-test"
     assert config.llm_system_prompt == "Tu es un coach test."
     assert config.llm_user_prompt_template.startswith("Focus=")
+
+
+def test_load_config_prefers_env_api_key_over_keychain(tmp_path: Path, monkeypatch):
+    settings_path = _settings_template(tmp_path)
+    monkeypatch.setenv("TALLEYRAND_OPENAI_API_KEY", "sk-env")
+    monkeypatch.setattr("src.config.get_api_key", lambda _provider: "sk-keychain")
+
+    config = load_config(settings_path)
+
+    assert config.llm_api_key == "sk-env"
+
+
+def test_load_config_reads_api_key_from_keychain(tmp_path: Path, monkeypatch):
+    settings_path = _settings_template(tmp_path)
+    monkeypatch.delenv("TALLEYRAND_OPENAI_API_KEY", raising=False)
+    monkeypatch.setattr("src.config.get_api_key", lambda provider: f"sk-{provider}")
+
+    config = load_config(settings_path)
+
+    assert config.llm_api_key == "sk-openai"
 
 
 def test_validate_config_rejects_invalid_values(tmp_path: Path):

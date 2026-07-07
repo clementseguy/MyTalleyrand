@@ -79,11 +79,12 @@ L'implémentation actuelle utilise un polling simple (`time.sleep(0.5)` + `stat.
 
 ## Keychain
 
-`coach/src/keychain.py` lève `NotImplementedError` — l'intégration `keyring` n'est pas encore active.
+`coach/src/keychain.py` utilise `keyring` pour stocker, lire et supprimer la clé API dans le Keychain macOS.
 
-La clé API est configurée via :
-1. `coach.user.json` → `llm.api_key`
-2. Variable d'environnement `TALLEYRAND_OPENAI_API_KEY`
+Priorité de résolution de la clé API :
+1. Variable d'environnement `TALLEYRAND_OPENAI_API_KEY` (développement/CI)
+2. Keychain macOS, service `MyTalleyrand`, compte `openai`
+3. Ancien champ `coach.user.json` → `llm.api_key` seulement pour compatibilité de migration, avec avertissement dans les logs
 
 ## Apple Silicon
 
