@@ -3,13 +3,12 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 INSTALL_BASE="${INSTALL_BASE:-$HOME/Applications/MyTalleyrandCoach}"
+# Dossier de données/installation Civilization V.
+# - Laissé vide : l'installateur le détecte automatiquement (Aspyr Store ou Steam).
+# - Défini via la variable d'environnement CIV5_DOCS_DIR : force ce chemin (il est
+#   tout de même validé avant utilisation).
+# MODS_DIR / MOD_TARGET_DIR / EXPORT_DIR sont dérivés APRÈS détection (voir plus bas).
 CIV5_DOCS_DIR="${CIV5_DOCS_DIR:-}"
-if [[ -z "$CIV5_DOCS_DIR" ]]; then
-  CIV5_DOCS_DIR="$HOME/Documents/Aspyr/Sid Meier's Civilization 5"
-fi
-MODS_DIR="$CIV5_DOCS_DIR/MODS"
-MOD_TARGET_DIR="$MODS_DIR/MyTalleyrand"
-EXPORT_DIR="$MOD_TARGET_DIR/export"
 USER_CONFIG_DIR="$HOME/Library/Application Support/MyTalleyrand"
 USER_CONFIG_FILE="$USER_CONFIG_DIR/coach.user.json"
 
@@ -28,6 +27,57 @@ pause_step() {
   if [[ "$INTERACTIVE" == "1" ]]; then
     read -r -p "$1" _ || true
   fi
+}
+
+# --- Détection du dossier Civilization V -----------------------------------
+
+# Vrai si le dossier ressemble à des données utilisateur ou à une installation Civ5.
+is_valid_civ5_dir() {
+  local dir="$1"
+  [[ -n "$dir" && -d "$dir" ]] || return 1
+  # Dossier de données utilisateur (Aspyr/Steam) : contient (ou contiendra) MODS.
+  local sub
+  for sub in MODS Logs Saves cache ModUserData; do
+    [[ -d "$dir/$sub" ]] && return 0
+  done
+  # Dossier d'installation Steam : marqueur Steam ou app du jeu.
+  [[ -f "$dir/steam_appid.txt" ]] && return 0
+  if compgen -G "$dir/*.app" >/dev/null 2>&1; then
+    return 0
+  fi
+  return 1
+}
+
+# Liste, un chemin par ligne, les dossiers candidats à tester (données puis Steam).
+civ5_candidate_dirs() {
+  # Données utilisateur Aspyr Store (emplacement historique des MODS).
+  printf '%s\n' "$HOME/Documents/Aspyr/Sid Meier's Civilization 5"
+  # Données utilisateur Steam macOS (emplacement des MODS pour la version Steam).
+  printf '%s\n' "$HOME/Library/Application Support/Sid Meier's Civilization 5"
+  # Installation Steam par défaut (steamapps/common).
+  local steam_root="$HOME/Library/Application Support/Steam"
+  printf '%s\n' "$steam_root/steamapps/common/Sid Meier's Civilization V"
+  # Bibliothèques Steam additionnelles déclarées dans libraryfolders.vdf.
+  local vdf="$steam_root/config/libraryfolders.vdf"
+  if [[ -f "$vdf" ]]; then
+    local lib
+    while IFS= read -r lib; do
+      [[ -n "$lib" ]] || continue
+      printf '%s\n' "$lib/steamapps/common/Sid Meier's Civilization V"
+    done < <(sed -nE 's/^[[:space:]]*"path"[[:space:]]+"(.*)"[[:space:]]*$/\1/p' "$vdf")
+  fi
+}
+
+# Renvoie (sur stdout) le premier dossier candidat valide, ou code retour 1.
+detect_civ5_dir() {
+  local dir
+  while IFS= read -r dir; do
+    if is_valid_civ5_dir "$dir"; then
+      printf '%s\n' "$dir"
+      return 0
+    fi
+  done < <(civ5_candidate_dirs)
+  return 1
 }
 
 printf "\n🚀 Installation MyTalleyrand (macOS)\n"
@@ -64,21 +114,73 @@ if ! command -v python3 >/dev/null 2>&1; then
 fi
 printf "   ✅ Python 3 détecté (%s)\n" "$(python3 -V 2>&1)"
 
-if [[ ! -d "$CIV5_DOCS_DIR" ]]; then
-  printf "   ⚠️  Dossier Civilization V introuvable :\n       %s\n" "$CIV5_DOCS_DIR"
-  printf "       Civ5 n'est peut-être pas installé ou n'a jamais été lancé.\n"
-  printf "       (Lancez le jeu une fois pour créer ce dossier.)\n"
-  if [[ "$INTERACTIVE" == "1" ]]; then
-    read -r -p "   Continuer quand même l'installation ? (o/N) " CONT || true
-    if [[ ! "${CONT:-}" =~ ^[oOyY]$ ]]; then
-      echo "   Installation interrompue. Relancez après avoir installé/lancé Civ5."
-      exit 1
-    fi
+# --- Détection du dossier Civilization V -----------------------------------
+printf "🔎 Recherche du dossier Civilization V (Aspyr et Steam)...\n"
+
+# 1) Chemin imposé explicitement via variable d'environnement : on le valide.
+if [[ -n "$CIV5_DOCS_DIR" ]]; then
+  if is_valid_civ5_dir "$CIV5_DOCS_DIR"; then
+    printf "   ✅ Dossier fourni via CIV5_DOCS_DIR: %s\n" "$CIV5_DOCS_DIR"
+  else
+    printf "   ⚠️  CIV5_DOCS_DIR ne pointe pas vers un dossier Civ5 valide: %s\n" "$CIV5_DOCS_DIR"
+    CIV5_DOCS_DIR=""
   fi
-else
-  printf "   ✅ Dossier Civilization V trouvé\n"
 fi
+
+# 2) Détection automatique (Aspyr, données Steam, steamapps/common multi-bibliothèques).
+if [[ -z "$CIV5_DOCS_DIR" ]]; then
+  if CIV5_DOCS_DIR="$(detect_civ5_dir)"; then
+    printf "   ✅ Dossier Civilization V détecté automatiquement:\n       %s\n" "$CIV5_DOCS_DIR"
+  else
+    CIV5_DOCS_DIR=""
+  fi
+fi
+
+# 3) Saisie manuelle si rien n'a été trouvé, avec validation stricte.
+if [[ -z "$CIV5_DOCS_DIR" ]]; then
+  printf "   ⚠️  Aucun dossier Civilization V détecté automatiquement.\n"
+  printf "       Le jeu doit avoir été installé (Aspyr Store ou Steam) et lancé au moins une fois.\n"
+  if [[ "$INTERACTIVE" == "1" ]]; then
+    printf "\n   Saisissez manuellement le chemin du dossier Civilization V.\n"
+    printf "   Astuce : glissez-déposez le dossier depuis le Finder dans le Terminal.\n"
+    printf "   Exemples de chemins :\n"
+    printf "     • Aspyr : ~/Documents/Aspyr/Sid Meier's Civilization 5\n"
+    printf "     • Steam : ~/Library/Application Support/Steam/steamapps/common/Sid Meier's Civilization V\n\n"
+    while true; do
+      read -r -p "   Chemin du dossier Civ5 (laisser vide pour annuler) : " MANUAL_DIR || true
+      # Nettoie une saisie issue d'un glisser-déposer ou d'un copier-coller :
+      # supprime les guillemets englobants et déséchappe les espaces (\ -> espace).
+      MANUAL_DIR="${MANUAL_DIR%\"}"; MANUAL_DIR="${MANUAL_DIR#\"}"
+      MANUAL_DIR="${MANUAL_DIR%\'}"; MANUAL_DIR="${MANUAL_DIR#\'}"
+      MANUAL_DIR="${MANUAL_DIR//\\ / }"
+      # Développe un ~ initial en $HOME.
+      MANUAL_DIR="${MANUAL_DIR/#\~/$HOME}"
+      if [[ -z "$MANUAL_DIR" ]]; then
+        echo "   Installation interrompue : aucun dossier Civilization V fourni."
+        echo "   Installez/lancez Civ5, puis relancez : ./scripts/install_macos.sh"
+        exit 1
+      fi
+      if is_valid_civ5_dir "$MANUAL_DIR"; then
+        CIV5_DOCS_DIR="$MANUAL_DIR"
+        printf "   ✅ Dossier Civilization V validé: %s\n" "$CIV5_DOCS_DIR"
+        break
+      fi
+      printf "   ❌ Ce dossier n'existe pas ou ne ressemble pas à une installation Civ5.\n"
+      printf "      Il doit contenir le jeu (ou un sous-dossier MODS/Logs/Saves). Réessayez.\n\n"
+    done
+  else
+    echo "   Installation interrompue : dossier Civilization V introuvable (mode non interactif)."
+    echo "   Définissez CIV5_DOCS_DIR=/chemin/vers/Civ5 puis relancez."
+    exit 1
+  fi
+fi
+
+# Dérive les chemins du mod à partir du dossier Civ5 confirmé (auto-détecté ou saisi).
+MODS_DIR="$CIV5_DOCS_DIR/MODS"
+MOD_TARGET_DIR="$MODS_DIR/MyTalleyrand"
+EXPORT_DIR="$MOD_TARGET_DIR/export"
 printf "\n"
+
 
 mkdir -p "$MODS_DIR"
 rm -rf "$MOD_TARGET_DIR"
@@ -92,10 +194,27 @@ rm -rf "$INSTALL_BASE/coach"
 cp -R "$ROOT_DIR/coach" "$INSTALL_BASE/coach"
 printf "✅ Coach installé dans: %s\n" "$INSTALL_BASE/coach"
 
-python3 -m venv "$INSTALL_BASE/coach/.venv"
-"$INSTALL_BASE/coach/.venv/bin/pip" install --upgrade pip >/dev/null
-"$INSTALL_BASE/coach/.venv/bin/pip" install -r "$INSTALL_BASE/coach/requirements.txt" >/dev/null
-printf "✅ Environnement Python prêt\n"
+VENV_DIR="$INSTALL_BASE/coach/.venv"
+VENV_PY="$VENV_DIR/bin/python"
+printf "🐍 Création de l'environnement Python (.venv)...\n"
+if ! python3 -m venv "$VENV_DIR"; then
+  echo "❌ Échec de la création de l'environnement virtuel Python (.venv)."
+  echo "   Vérifiez que Python 3 est bien installé et complet (module venv) :"
+  echo "        python3 -m venv --help"
+  echo "   Si nécessaire, (ré)installez les outils Apple :"
+  echo "        xcode-select --install"
+  exit 1
+fi
+if [[ ! -x "$VENV_PY" ]]; then
+  echo "❌ L'environnement virtuel a été demandé mais l'interpréteur est introuvable :"
+  echo "        $VENV_PY"
+  echo "   Échec de la création de l'environnement virtuel : vérifiez que Python 3"
+  echo "   est bien installé et accessible (modules venv + ensurepip)."
+  exit 1
+fi
+"$VENV_PY" -m pip install --upgrade pip >/dev/null
+"$VENV_PY" -m pip install -r "$INSTALL_BASE/coach/requirements.txt" >/dev/null
+printf "✅ Environnement Python prêt (%s)\n" "$VENV_DIR"
 
 cat > "$INSTALL_BASE/start_coach.command" <<EOF
 #!/usr/bin/env bash
@@ -159,7 +278,7 @@ if [[ -z "$COACH_API_KEY" ]]; then
   fi
 fi
 if [[ -n "$COACH_API_KEY" ]]; then
-  "$INSTALL_BASE/coach/.venv/bin/python" - "$USER_CONFIG_FILE" <<'PY'
+  "$VENV_PY" - "$USER_CONFIG_FILE" <<'PY'
 import json
 import pathlib
 import sys
@@ -170,7 +289,7 @@ llm = data.setdefault("llm", {})
 llm.pop("api_key", None)
 cfg_path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 PY
-  printf "%s" "$COACH_API_KEY" | PYTHONPATH="$INSTALL_BASE/coach" "$INSTALL_BASE/coach/.venv/bin/python" -m src.keychain set openai --stdin
+  printf "%s" "$COACH_API_KEY" | PYTHONPATH="$INSTALL_BASE/coach" "$VENV_PY" -m src.keychain set openai --stdin
   printf "✅ Clé API enregistrée dans le Keychain macOS (service MyTalleyrand, compte openai)\n"
 fi
 
