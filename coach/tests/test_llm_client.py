@@ -6,7 +6,7 @@ from openai import APIConnectionError, APIError, APITimeoutError, RateLimitError
 
 from tests.conftest import make_gamestate
 
-from src.llm_client import LLMClient
+from src.llm_client import LLMClient, estimate_game_budget_usd, estimate_openai_cost_usd
 
 
 def test_generate_advice_uses_fallback_when_remote_fails(monkeypatch):
@@ -151,3 +151,54 @@ def test_build_prompt_sanitizes_untrusted_mod_text():
     assert "unexpected" not in prompt
     assert "Ignore previous instructions" in prompt
     assert "Napoleon\\n" not in prompt
+
+
+def test_build_prompt_includes_detail_level_instruction():
+    client = LLMClient(
+        provider="openai",
+        model="gpt-4o-mini",
+        user_prompt_template="F={victory_focus} | G={game_state_json}",
+        detail_level="brief",
+    )
+
+    prompt = client._build_prompt(make_gamestate(), victory_focus="science")
+
+    assert "Niveau de détail attendu" in prompt
+    assert "très concise" in prompt
+
+
+def test_parse_remote_payload_adds_estimated_cost_from_usage():
+    client = LLMClient(provider="openai", model="gpt-4o-mini")
+    payload = {
+        "objective_10_turns": "Objectif.",
+        "priority_actions": ["A", "B", "C"],
+        "risks": [],
+        "confidence": 80,
+        "categories": {},
+        "_usage": {"prompt_tokens": 1000, "completion_tokens": 500},
+    }
+
+    advice = client._parse_remote_payload(payload)
+
+    assert advice.prompt_tokens == 1000
+    assert advice.completion_tokens == 500
+    assert advice.estimated_cost_usd > 0
+
+
+def test_detail_level_changes_effective_max_tokens():
+    assert LLMClient("openai", "gpt-4o-mini", max_tokens=500, detail_level="brief").effective_max_output_tokens == 250
+    assert LLMClient("openai", "gpt-4o-mini", max_tokens=500, detail_level="standard").effective_max_output_tokens == 500
+    assert LLMClient("openai", "gpt-4o-mini", max_tokens=500, detail_level="detailed").effective_max_output_tokens == 700
+
+
+def test_unknown_model_cost_is_explicitly_unknown():
+    assert estimate_openai_cost_usd("unknown-model", 1000, 500) is None
+
+
+def test_budget_estimate_documents_sub_two_euro_margin_for_long_game():
+    # Partie difficile longue: 300 tours analysés toutes les 10 tours + tour 1 ≈ 31 analyses.
+    # Hypothèse conservatrice par analyse: 4k tokens prompt + 700 tokens sortie détaillée.
+    estimated = estimate_game_budget_usd("gpt-4o-mini", prompt_tokens=4000, completion_tokens=700, analyses=31)
+
+    assert estimated is not None
+    assert estimated < 2.0

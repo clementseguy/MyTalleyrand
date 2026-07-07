@@ -14,7 +14,9 @@
     "timeout_seconds": 15
   },
   "coach": {
-    "analysis_interval_turns": 10
+    "analysis_interval_turns": 10,
+    "detail_level": "standard",
+    "cost_limit_usd": 2.0
   },
   "overlay": {
     "width": 400,

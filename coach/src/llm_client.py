@@ -29,6 +29,9 @@ class LLMAdvice:
     categories: dict[str, list[str]]
     action_justifications: dict[str, str] = field(default_factory=dict)
     source: str = "remote"
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    estimated_cost_usd: float | None = 0.0
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -79,6 +82,7 @@ class LLMClient:
         temperature: float = 0.2,
         system_prompt: str = DEFAULT_SYSTEM_PROMPT,
         user_prompt_template: str = DEFAULT_USER_PROMPT_TEMPLATE,
+        detail_level: str = "standard",
         api_key: str | None = None,
         status_callback: Callable[[LLMStatus], None] | None = None,
     ):
@@ -89,9 +93,14 @@ class LLMClient:
         self.temperature = temperature
         self.system_prompt = system_prompt.strip() or DEFAULT_SYSTEM_PROMPT
         self.user_prompt_template = user_prompt_template
+        self.detail_level = _normalize_detail_level(detail_level)
         self.api_key = api_key
         self._openai_client = None
         self.status_callback = status_callback
+
+    @property
+    def effective_max_output_tokens(self) -> int:
+        return detail_level_max_tokens(self.max_tokens, self.detail_level)
 
     def generate_advice(self, game_state: dict[str, Any], victory_focus: str) -> LLMAdvice:
         try:
@@ -149,7 +158,7 @@ class LLMClient:
         response = client.responses.create(
             model=self.model,
             temperature=self.temperature,
-            max_output_tokens=self.max_tokens,
+            max_output_tokens=self.effective_max_output_tokens,
             input=[
                 {
                     "role": "system",
@@ -164,15 +173,22 @@ class LLMClient:
             raise LLMResponseError("réponse vide du provider")
 
         try:
-            return json.loads(content)
+            payload = json.loads(content)
+            if isinstance(payload, dict):
+                usage = getattr(response, "usage", None)
+                input_tokens = int(getattr(usage, "input_tokens", 0) or 0) if usage is not None else 0
+                output_tokens = int(getattr(usage, "output_tokens", 0) or 0) if usage is not None else 0
+                payload["_usage"] = {"prompt_tokens": input_tokens, "completion_tokens": output_tokens}
+            return payload
         except json.JSONDecodeError as exc:
             raise LLMResponseError(f"JSON LLM invalide: {exc}") from exc
 
     def _build_prompt(self, game_state: dict[str, Any], victory_focus: str) -> str:
+        detail_instruction = _detail_instruction(self.detail_level)
         return self.user_prompt_template.format(
             victory_focus=victory_focus,
             game_state_json=json.dumps(_sanitize_game_state_for_prompt(game_state), ensure_ascii=False),
-        )
+        ) + f"\nNiveau de détail attendu: {detail_instruction}"
 
     def _parse_remote_payload(self, payload: dict[str, Any]) -> LLMAdvice:
         required = ["objective_10_turns", "priority_actions", "risks", "confidence", "categories"]
@@ -214,6 +230,9 @@ class LLMClient:
         raw_justifications = payload.get("action_justifications", {})
         action_justifications = _normalize_action_justifications(raw_justifications, normalized_actions)
 
+        usage = payload.get("_usage") if isinstance(payload.get("_usage"), dict) else {}
+        prompt_tokens = int(usage.get("prompt_tokens", 0) or 0)
+        completion_tokens = int(usage.get("completion_tokens", 0) or 0)
         return LLMAdvice(
             objective_10_turns=objective,
             priority_actions=normalized_actions,
@@ -222,6 +241,9 @@ class LLMClient:
             categories=normalized_categories,
             action_justifications=action_justifications,
             source="remote",
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            estimated_cost_usd=estimate_openai_cost_usd(self.model, prompt_tokens, completion_tokens),
         )
 
     def _generate_fallback_advice(self, game_state: dict[str, Any], victory_focus: str) -> LLMAdvice:
@@ -313,3 +335,47 @@ def _sanitize_scalar(value: Any) -> Any:
     if isinstance(value, (int, float)):
         return value
     return str(value).replace("\n", " ").replace("\r", " ")[:120]
+
+
+def _normalize_detail_level(value: str) -> str:
+    normalized = str(value).strip().lower()
+    return normalized if normalized in {"brief", "standard", "detailed"} else "standard"
+
+
+def _detail_instruction(detail_level: str) -> str:
+    if detail_level == "brief":
+        return "réponse très concise, justifications d’une phrase maximum."
+    if detail_level == "detailed":
+        return "réponse plus détaillée, avec contexte et arbitrages, sans dépasser 5 actions."
+    return "réponse équilibrée et directement actionnable."
+
+
+def detail_level_max_tokens(configured_max_tokens: int, detail_level: str) -> int:
+    if detail_level == "brief":
+        return min(configured_max_tokens, 250)
+    if detail_level == "detailed":
+        return max(configured_max_tokens, 700)
+    return configured_max_tokens
+
+
+# Tarifs indicatifs USD / 1M tokens pour estimation UX, pas facturation.
+_OPENAI_PRICING_USD_PER_MILLION = {
+    "gpt-4o-mini": (0.15, 0.60),
+    "gpt-4.1-mini": (0.40, 1.60),
+    "gpt-4.1-nano": (0.10, 0.40),
+}
+
+
+def estimate_openai_cost_usd(model: str, prompt_tokens: int, completion_tokens: int) -> float | None:
+    pricing = _OPENAI_PRICING_USD_PER_MILLION.get(model)
+    if pricing is None:
+        return None
+    input_price, output_price = pricing
+    return round((prompt_tokens / 1_000_000 * input_price) + (completion_tokens / 1_000_000 * output_price), 6)
+
+
+def estimate_game_budget_usd(model: str, prompt_tokens: int, completion_tokens: int, analyses: int) -> float | None:
+    single_call = estimate_openai_cost_usd(model, prompt_tokens, completion_tokens)
+    if single_call is None:
+        return None
+    return round(single_call * max(0, analyses), 6)
