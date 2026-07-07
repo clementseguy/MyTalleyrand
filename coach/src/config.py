@@ -67,9 +67,11 @@ def _expand(path_value: str) -> Path:
 
 def _env_or_default(env_name: str, default: Any, caster):
     raw = os.getenv(env_name)
-    if raw is None or raw == "":
-        return default
-    return caster(raw)
+    value = default if raw is None or raw == "" else raw
+    try:
+        return caster(value)
+    except (TypeError, ValueError) as exc:
+        raise ConfigError(f"Configuration invalide: {env_name}={value!r} n’est pas compatible avec {caster.__name__}") from exc
 
 
 def _load_json_if_exists(path: Path, *, required: bool = False) -> dict[str, Any]:
@@ -253,18 +255,18 @@ def validate_config(config: AppConfig) -> list[str]:
         errors.append("Overlay dimensions must be positive")
     if not (0 < config.overlay_opacity <= 1):
         errors.append("Overlay opacity must be in (0, 1]")
-    if config.llm_max_tokens <= 0:
-        errors.append("LLM max_tokens must be positive")
-    if config.llm_timeout_seconds <= 0:
-        errors.append("LLM timeout_seconds must be positive")
-    if not (0 <= config.llm_temperature <= 2):
-        errors.append("LLM temperature must be between 0 and 2")
-    if config.analysis_interval_turns <= 0:
-        errors.append("Analysis interval must be positive")
+    if not isinstance(config.llm_max_tokens, int) or config.llm_max_tokens <= 0:
+        errors.append("LLM max_tokens must be a positive integer")
+    if not isinstance(config.llm_timeout_seconds, int) or config.llm_timeout_seconds <= 0:
+        errors.append("LLM timeout_seconds must be a positive integer")
+    if not isinstance(config.llm_temperature, (int, float)) or not (0 <= config.llm_temperature <= 2):
+        errors.append("LLM temperature must be a number between 0 and 2")
+    if not isinstance(config.analysis_interval_turns, int) or config.analysis_interval_turns <= 0:
+        errors.append("Analysis interval must be a positive integer")
     if config.llm_detail_level not in {"brief", "standard", "detailed"}:
         errors.append("LLM detail_level must be brief, standard, or detailed")
-    if config.cost_limit_usd <= 0:
-        errors.append("Cost limit must be positive")
+    if not isinstance(config.cost_limit_usd, (int, float)) or config.cost_limit_usd <= 0:
+        errors.append("Cost limit must be a positive number")
     if "{victory_focus}" not in config.llm_user_prompt_template:
         errors.append("LLM user prompt template must include {victory_focus}")
     if "{game_state_json}" not in config.llm_user_prompt_template:

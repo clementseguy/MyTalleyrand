@@ -180,3 +180,26 @@ def test_load_config_reads_budget_controls(tmp_path: Path):
     assert config.analysis_interval_turns == 20
     assert config.llm_detail_level == "brief"
     assert config.cost_limit_usd == 1.25
+
+
+def test_load_config_reports_invalid_budget_type(tmp_path: Path):
+    settings_path = _settings_template(tmp_path)
+    payload = json.loads(settings_path.read_text(encoding="utf-8"))
+    payload["coach"] = {"analysis_interval_turns": 10, "detail_level": "standard", "cost_limit_usd": "haut"}
+    settings_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    try:
+        load_config(settings_path)
+    except Exception as exc:
+        assert "TALLEYRAND_COST_LIMIT_USD" in str(exc)
+    else:
+        raise AssertionError("load_config aurait dû refuser un plafond de coût non numérique")
+
+
+def test_validate_config_rejects_invalid_budget_type(tmp_path: Path):
+    config = load_config(_settings_template(tmp_path))
+    bad_config = config.__class__(**{**config.__dict__, "cost_limit_usd": "haut"})
+
+    errors = validate_config(bad_config)
+
+    assert "Cost limit must be a positive number" in errors

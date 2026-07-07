@@ -169,3 +169,42 @@ def test_coaching_engine_runtime_interval_update(tmp_path: Path):
     assert engine.get_decision(10).should_analyze is False
     assert engine.get_decision(20).should_analyze is True
     assert engine.cost_limit_usd == 1.5
+
+
+def test_coaching_engine_reuses_cache_across_real_analysis_turns_with_stable_context(tmp_path: Path, monkeypatch):
+    history_file = tmp_path / "history.json"
+    client = LLMClient("mock", "mock")
+    calls = {"count": 0}
+
+    def generate(game_state, victory_focus):
+        calls["count"] += 1
+        return client._generate_fallback_advice(game_state, victory_focus)
+
+    monkeypatch.setattr(client, "generate_advice", generate)
+    engine = CoachingEngine(client, history_file=history_file)
+    first_state = make_gamestate(turn_id=10, turn_number=10, rich=True)
+    second_state = make_gamestate(turn_id=20, turn_number=20, rich=True)
+    second_state["resources"]["gold"] = first_state["resources"]["gold"] + 10  # same 50-gold bucket
+    second_state["units"][0]["x"] = second_state["units"][0].get("x", 0) + 1  # unit movement should not bust cache
+
+    engine.maybe_generate_advice(first_state)
+    advice = engine.maybe_generate_advice(second_state)
+
+    assert advice is not None
+    assert advice.source == "cache"
+    assert calls["count"] == 1
+
+
+def test_coaching_engine_archives_history_when_new_game_starts(tmp_path: Path):
+    history_file = tmp_path / "history.json"
+    engine = CoachingEngine(LLMClient("mock", "mock"), history_file=history_file)
+    advice = LLMClient("mock", "mock")._generate_fallback_advice(make_gamestate(rich=True), "science")
+    advice = advice.__class__(**{**advice.__dict__, "estimated_cost_usd": 0.01})
+    engine._append_history(make_gamestate(turn_id=10, turn_number=10, rich=True), advice, "cycle_10_tours", "k")
+
+    engine.maybe_generate_advice(make_gamestate(turn_id=1, turn_number=1, rich=True))
+
+    history = json.loads(history_file.read_text(encoding="utf-8"))
+    assert [entry["turn_number"] for entry in history] == [1]
+    assert engine.get_budget_status().total_cost_usd == 0
+    assert list(tmp_path.glob("history.*.json"))

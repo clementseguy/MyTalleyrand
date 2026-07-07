@@ -117,6 +117,10 @@ def main() -> int:
         except ConfigError as exc:
             logger.warning("Configuration runtime ignorée: %s", exc)
             return
+        errors = validate_config(refreshed)
+        if errors:
+            logger.warning("Configuration runtime ignorée: %s", "; ".join(errors))
+            return
         last_config_mtime = current_mtime
         coaching_engine.update_runtime_settings(refreshed.analysis_interval_turns, refreshed.cost_limit_usd)
         llm_client.detail_level = refreshed.llm_detail_level

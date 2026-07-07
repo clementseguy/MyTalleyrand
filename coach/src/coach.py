@@ -73,6 +73,8 @@ class CoachingEngine:
             self.preferences = self.preferences_store.update_from_game_state(game_state, self.preferences)
             self.victory_focus = self.preferences.normalized_focus()
 
+        self._archive_history_if_new_game(turn_number)
+
         insufficient_context = self._detect_insufficient_context(game_state)
         if insufficient_context is not None:
             advice = insufficient_context
@@ -103,7 +105,7 @@ class CoachingEngine:
             "game_parameters": asdict(self.preferences.game_parameters),
             "cache_key": cache_key,
             "advice": asdict(advice),
-            "budget": asdict(self.get_budget_status(additional_cost=advice.estimated_cost_usd)),
+            "budget": asdict(self.get_budget_status(additional_cost=advice.estimated_cost_usd or 0.0)),
         }
 
         existing: list[dict[str, Any]] = []
@@ -136,6 +138,24 @@ class CoachingEngine:
         if cost_limit_usd is not None:
             self.cost_limit_usd = max(0.01, float(cost_limit_usd))
 
+    def _archive_history_if_new_game(self, turn_number: int) -> None:
+        if turn_number != 1 or not self.history_file.exists():
+            return
+        try:
+            history = json.loads(self.history_file.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, ValueError):
+            return
+        if not isinstance(history, list) or not history:
+            return
+        last_turn = int(history[-1].get("turn_number", 0) or 0) if isinstance(history[-1], dict) else 0
+        if last_turn <= 1:
+            return
+        archive_name = f"{self.history_file.stem}.{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}.json"
+        archive_file = self.history_file.with_name(archive_name)
+        archive_file.write_text(json.dumps(history, indent=2, ensure_ascii=False), encoding="utf-8")
+        self.history_file.write_text("[]", encoding="utf-8")
+        logger.info("Nouvelle partie détectée: historique précédent archivé dans %s", archive_file)
+
     def _find_cached_advice(self, cache_key: str) -> LLMAdvice | None:
         if not self.history_file.exists():
             return None
@@ -156,11 +176,11 @@ class CoachingEngine:
     def _cache_key(self, game_state: dict[str, Any]) -> str:
         resources = game_state.get("resources") if isinstance(game_state.get("resources"), dict) else {}
         relevant = {
-            "turn_number": int(game_state.get("turn_number", 0)),
             "victory_focus": self._build_victory_context(),
-            "resources": {key: resources.get(key) for key in ("gold", "science", "happiness", "culture")},
-            "cities": game_state.get("cities", []),
-            "units": game_state.get("units", []),
+            "resource_buckets": _resource_buckets(resources),
+            "city_count": _collection_count(game_state.get("cities")),
+            "unit_count": _collection_count(game_state.get("units")),
+            "game_parameters": game_state.get("game_parameters") or game_state.get("game") or game_state.get("settings") or {},
         }
         blob = json.dumps(relevant, sort_keys=True, ensure_ascii=False, default=str)
         return hashlib.sha256(blob.encode("utf-8")).hexdigest()
@@ -211,3 +231,19 @@ class CoachingEngine:
             },
             source="context_insufficient",
         )
+
+
+def _resource_buckets(resources: dict[str, Any]) -> dict[str, int]:
+    buckets = {"gold": 50, "science": 10, "happiness": 5, "culture": 10}
+    result: dict[str, int] = {}
+    for key, step in buckets.items():
+        try:
+            value = float(resources.get(key, 0) or 0)
+        except (TypeError, ValueError):
+            value = 0
+        result[key] = int(value // step)
+    return result
+
+
+def _collection_count(value: Any) -> int:
+    return len(value) if isinstance(value, list) else 0

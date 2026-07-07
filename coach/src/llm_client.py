@@ -31,7 +31,7 @@ class LLMAdvice:
     source: str = "remote"
     prompt_tokens: int = 0
     completion_tokens: int = 0
-    estimated_cost_usd: float = 0.0
+    estimated_cost_usd: float | None = 0.0
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -98,6 +98,10 @@ class LLMClient:
         self._openai_client = None
         self.status_callback = status_callback
 
+    @property
+    def effective_max_output_tokens(self) -> int:
+        return detail_level_max_tokens(self.max_tokens, self.detail_level)
+
     def generate_advice(self, game_state: dict[str, Any], victory_focus: str) -> LLMAdvice:
         try:
             raw = self._generate_remote_advice_raw(game_state=game_state, victory_focus=victory_focus)
@@ -154,7 +158,7 @@ class LLMClient:
         response = client.responses.create(
             model=self.model,
             temperature=self.temperature,
-            max_output_tokens=self.max_tokens,
+            max_output_tokens=self.effective_max_output_tokens,
             input=[
                 {
                     "role": "system",
@@ -346,8 +350,32 @@ def _detail_instruction(detail_level: str) -> str:
     return "réponse équilibrée et directement actionnable."
 
 
-def estimate_openai_cost_usd(model: str, prompt_tokens: int, completion_tokens: int) -> float:
-    # Tarifs indicatifs GPT-4o mini conservateurs (USD / 1M tokens) pour estimation UX, pas facturation.
-    pricing = {"gpt-4o-mini": (0.15, 0.60)}
-    input_price, output_price = pricing.get(model, pricing["gpt-4o-mini"])
+def detail_level_max_tokens(configured_max_tokens: int, detail_level: str) -> int:
+    if detail_level == "brief":
+        return min(configured_max_tokens, 250)
+    if detail_level == "detailed":
+        return max(configured_max_tokens, 700)
+    return configured_max_tokens
+
+
+# Tarifs indicatifs USD / 1M tokens pour estimation UX, pas facturation.
+_OPENAI_PRICING_USD_PER_MILLION = {
+    "gpt-4o-mini": (0.15, 0.60),
+    "gpt-4.1-mini": (0.40, 1.60),
+    "gpt-4.1-nano": (0.10, 0.40),
+}
+
+
+def estimate_openai_cost_usd(model: str, prompt_tokens: int, completion_tokens: int) -> float | None:
+    pricing = _OPENAI_PRICING_USD_PER_MILLION.get(model)
+    if pricing is None:
+        return None
+    input_price, output_price = pricing
     return round((prompt_tokens / 1_000_000 * input_price) + (completion_tokens / 1_000_000 * output_price), 6)
+
+
+def estimate_game_budget_usd(model: str, prompt_tokens: int, completion_tokens: int, analyses: int) -> float | None:
+    single_call = estimate_openai_cost_usd(model, prompt_tokens, completion_tokens)
+    if single_call is None:
+        return None
+    return round(single_call * max(0, analyses), 6)
