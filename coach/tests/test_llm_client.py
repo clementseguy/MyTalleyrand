@@ -1,17 +1,8 @@
 from __future__ import annotations
 
+from tests.conftest import make_gamestate
+
 from src.llm_client import LLMClient
-
-
-def _payload() -> dict:
-    return {
-        "schema_version": "0.1.0",
-        "turn_id": 1,
-        "turn_number": 1,
-        "timestamp_utc": "2026-01-01T00:00:00Z",
-        "player": {"leader": "Napoleon"},
-        "resources": {"gold": 60, "science": 10},
-    }
 
 
 def test_generate_advice_uses_fallback_when_remote_fails(monkeypatch):
@@ -22,7 +13,7 @@ def test_generate_advice_uses_fallback_when_remote_fails(monkeypatch):
 
     monkeypatch.setattr(client, "_generate_remote_advice_raw", boom)
 
-    advice = client.generate_advice(_payload(), victory_focus="science")
+    advice = client.generate_advice(make_gamestate(), victory_focus="science")
 
     assert "tour 11" in advice.objective_10_turns
     assert 3 <= len(advice.priority_actions) <= 5
@@ -49,7 +40,7 @@ def test_generate_advice_parses_remote_payload(monkeypatch):
         lambda *_args, **_kwargs: remote_payload,
     )
 
-    advice = client.generate_advice(_payload(), victory_focus="science")
+    advice = client.generate_advice(make_gamestate(), victory_focus="science")
 
     assert advice.objective_10_turns == remote_payload["objective_10_turns"]
     assert advice.confidence == 82
@@ -63,7 +54,7 @@ def test_build_prompt_uses_custom_template():
         user_prompt_template="F={victory_focus} | G={game_state_json}",
     )
 
-    prompt = client._build_prompt(_payload(), victory_focus="science")
+    prompt = client._build_prompt(make_gamestate(), victory_focus="science")
 
     assert prompt.startswith("F=science")
     assert '"turn_id": 1' in prompt

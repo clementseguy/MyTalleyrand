@@ -75,11 +75,11 @@ self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
 
 L'implémentation actuelle utilise un polling simple (`time.sleep(0.5)` + `stat.st_mtime_ns`).
 
-`watchdog` est dans `requirements.txt` mais n'est pas utilisé. Une migration vers watchdog (FSEvents natif) reste une amélioration future.
+`watchdog` n'est plus dans `requirements.txt`. Une migration vers watchdog (FSEvents natif) reste une amélioration future.
 
 ## Keychain
 
-`coach/src/keychain.py` contient des stubs (TODO). L'intégration `keyring` n'est pas encore active.
+`coach/src/keychain.py` lève `NotImplementedError` — l'intégration `keyring` n'est pas encore active.
 
 La clé API est configurée via :
 1. `coach.user.json` → `llm.api_key`

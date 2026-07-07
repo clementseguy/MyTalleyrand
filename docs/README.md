@@ -12,14 +12,14 @@ Civ5 (Lua) ──► gamestate.json ──► watcher ──► coach ──► 
 
 | Composant | Fichier(s) | Rôle |
 |-----------|-----------|------|
-| **Mod Lua** | `mod/Lua/GameplayScript.lua` | Exporte `gamestate.json` à chaque tour (écriture atomique) |
+| **Mod Lua** | `mod/Lua/GameplayScript.lua` | Exporte `gamestate.json` à chaque tour (écriture atomique, `pcall`) |
 | **Watcher** | `coach/src/watcher.py` | Poll le fichier, valide le schéma, déduplique par `turn_id` |
 | **Coach** | `coach/src/coach.py` | Décide quand analyser (tour 1, puis tous les 10 tours) |
 | **LLM Client** | `coach/src/llm_client.py` | Appel OpenAI + retry exponentiel + fallback local |
 | **Overlay** | `coach/src/overlay.py` | Affiche conseils (abstraction testable, pas de PyQt6 runtime) |
 | **Config** | `coach/src/config.py` | Multi-niveaux : settings.json → coach.user.json → env vars |
 | **Schéma** | `coach/src/gamestate_schema.py` | Valide gamestate v0.1.0 |
-| **Keychain** | `coach/src/keychain.py` | Stubs Keychain macOS (TODO keyring) |
+| **Keychain** | `coach/src/keychain.py` | Stubs Keychain macOS (lève `NotImplementedError` — intégration keyring prévue) |
 
 ### Format gamestate (v0.1.0)
 
@@ -89,7 +89,7 @@ Variables d'environnement disponibles :
 
 - Tous les fichiers source < 500 lignes
 - Schéma gamestate versionné (`schema_version`)
-- Écriture atomique (tmp + rename) côté Lua
+- Écriture atomique (tmp + rename) côté Lua avec `pcall` pour crash-safety
 - Retry exponentiel (tenacity) côté LLM
 - Fallback local déterministe si LLM indisponible
 - Tests : `cd coach && python3 -m pytest`

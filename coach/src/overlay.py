@@ -32,9 +32,12 @@ class TalleyrandOverlay:
     def _load_state(self) -> None:
         if not self.state_file.exists():
             return
-        payload = json.loads(self.state_file.read_text(encoding="utf-8"))
-        self.position = OverlayPosition(x=int(payload.get("x", 30)), y=int(payload.get("y", 30)))
-        self.visible = bool(payload.get("visible", True))
+        try:
+            payload = json.loads(self.state_file.read_text(encoding="utf-8"))
+            self.position = OverlayPosition(x=int(payload.get("x", 30)), y=int(payload.get("y", 30)))
+            self.visible = bool(payload.get("visible", True))
+        except (json.JSONDecodeError, ValueError, TypeError) as exc:
+            logger.warning("État overlay corrompu, réinitialisation (%s)", exc)
 
     def _save_state(self) -> None:
         self.state_file.parent.mkdir(parents=True, exist_ok=True)

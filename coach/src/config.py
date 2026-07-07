@@ -19,8 +19,8 @@ _DEFAULT_SYSTEM_PROMPT = (
 )
 
 _DEFAULT_USER_PROMPT_TEMPLATE = (
-    "Objectif de victoire: {victory_focus}\\n"
-    "Etat de jeu (JSON): {game_state_json}\\n"
+    "Objectif de victoire: {victory_focus}\n"
+    "Etat de jeu (JSON): {game_state_json}\n"
     "Donne un objectif 10 tours, 3-5 actions prioritaires, risques, confiance (0-100), "
     "et actions catégorisées (economie/science/militaire/diplomatie)."
 )
@@ -125,6 +125,8 @@ def validate_config(config: AppConfig) -> list[str]:
         errors.append("LLM max_tokens must be positive")
     if config.llm_timeout_seconds <= 0:
         errors.append("LLM timeout_seconds must be positive")
+    if not (0 <= config.llm_temperature <= 2):
+        errors.append("LLM temperature must be between 0 and 2")
     if "{victory_focus}" not in config.llm_user_prompt_template:
         errors.append("LLM user prompt template must include {victory_focus}")
     if "{game_state_json}" not in config.llm_user_prompt_template:

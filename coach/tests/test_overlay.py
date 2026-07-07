@@ -33,3 +33,13 @@ def test_overlay_renders_objective_and_actions(tmp_path: Path):
 
     assert "Objectif (10 tours)" in overlay.last_rendered_text
     assert "Action A" in overlay.last_rendered_text
+
+
+def test_overlay_survives_corrupt_state_file(tmp_path: Path):
+    state_file = tmp_path / "overlay_state.json"
+    state_file.write_text("{bad json", encoding="utf-8")
+
+    overlay = TalleyrandOverlay(state_file=state_file)
+
+    assert overlay.position.x == 30
+    assert overlay.visible is True

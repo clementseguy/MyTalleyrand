@@ -13,6 +13,7 @@ local function JsonEscape(value)
     escaped = string.gsub(escaped, "\n", "\\n")
     escaped = string.gsub(escaped, "\r", "\\r")
     escaped = string.gsub(escaped, "\t", "\\t")
+    escaped = string.gsub(escaped, "%z", "")
     return escaped
 end
 
@@ -114,12 +115,13 @@ local function OnPlayerDoTurn(playerId)
         return
     end
 
-    CollectGameState(activePlayer)
+    local ok, err = pcall(CollectGameState, activePlayer)
+    if not ok then
+        print("[MyTalleyrand] Erreur inattendue: " .. tostring(err))
+    end
 end
 
-function Initialize()
-    print("Initialisation du mod MyTalleyrand")
-end
-
-Events.LoadScreenClose.Add(Initialize)
+Events.LoadScreenClose.Add(function()
+    print("[MyTalleyrand] Mod initialisé")
+end)
 GameEvents.PlayerDoTurn.Add(OnPlayerDoTurn)

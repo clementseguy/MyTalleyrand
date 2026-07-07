@@ -55,7 +55,7 @@ Remplacer l'overlay abstrait par une vraie UI PyQt6 :
 
 ## Améliorations techniques non planifiées
 
-- Intégration Keychain réelle (`keyring`) — remplacer les stubs dans `keychain.py`
+- Intégration Keychain réelle (`keyring`) — remplacer les stubs `NotImplementedError` dans `keychain.py`
 - Migration watcher vers `watchdog` (FSEvents natif macOS)
 - Enrichissement du schéma gamestate (villes, diplomatie, technologies)
 - Packaging macOS (.app, code signing, notarization)
