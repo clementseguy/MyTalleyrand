@@ -182,6 +182,15 @@ def test_load_config_reads_budget_controls(tmp_path: Path):
     assert config.cost_limit_usd == 1.25
 
 
+def test_default_settings_use_steam_paths():
+    settings_path = Path(__file__).resolve().parents[1] / "config" / "settings.json"
+    payload = json.loads(settings_path.read_text(encoding="utf-8"))
+
+    assert payload["paths"]["civ5_user_dir"].endswith("Library/Application Support/Sid Meier's Civilization 5")
+    assert payload["paths"]["mod_export_dir"].endswith("Library/Application Support/Sid Meier's Civilization 5/MODS/MyTalleyrand/export")
+    assert payload["paths"]["gamestate_file"].endswith("Library/Application Support/Sid Meier's Civilization 5/MODS/MyTalleyrand/export/gamestate.json")
+
+
 def test_load_config_reports_invalid_budget_type(tmp_path: Path):
     settings_path = _settings_template(tmp_path)
     payload = json.loads(settings_path.read_text(encoding="utf-8"))

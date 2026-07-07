@@ -1,9 +1,9 @@
 {
   "schema_version": "0.1.0",
   "paths": {
-    "civ5_user_dir": "~/Documents/Aspyr/Sid Meier's Civilization 5",
-    "mod_export_dir": "~/Documents/Aspyr/Sid Meier's Civilization 5/MODS/MyTalleyrand/export",
-    "gamestate_file": "~/Documents/Aspyr/Sid Meier's Civilization 5/MODS/MyTalleyrand/export/gamestate.json",
+    "civ5_user_dir": "~/Library/Application Support/Sid Meier's Civilization 5",
+    "mod_export_dir": "~/Library/Application Support/Sid Meier's Civilization 5/MODS/MyTalleyrand/export",
+    "gamestate_file": "~/Library/Application Support/Sid Meier's Civilization 5/MODS/MyTalleyrand/export/gamestate.json",
     "log_file": "~/talleyrand.log"
   },
   "llm": {
