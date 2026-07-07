@@ -7,7 +7,7 @@ Application de coaching en temps réel pour Civilization V.
 ### Option recommandée (depuis la racine du repo)
 
 ```bash
-./script/install_macos.sh
+./scripts/install_macos.sh
 ```
 
 ### Option manuelle (développement)

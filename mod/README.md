@@ -7,7 +7,7 @@ Le mod exporte un état de jeu JSON consommé par le coach Python.
 ### Option recommandée
 
 ```bash
-./script/install_macos.sh
+./scripts/install_macos.sh
 ```
 
 ### Option manuelle
