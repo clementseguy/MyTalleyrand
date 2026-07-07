@@ -5,9 +5,9 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import asdict, dataclass
-from typing import Any
+from typing import Any, Callable
 
-from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
+from tenacity import RetryCallState, retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 from src.config import _DEFAULT_SYSTEM_PROMPT, _DEFAULT_USER_PROMPT_TEMPLATE
 
@@ -25,13 +25,43 @@ class LLMAdvice:
     risks: list[str]
     confidence: int
     categories: dict[str, list[str]]
+    source: str = "remote"
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
+@dataclass(frozen=True)
+class LLMStatus:
+    """Statut UX court lié à la disponibilité du provider LLM."""
+
+    title: str
+    message: str
+    suggestion: str
+
+
+def _notify_retry_status(retry_state: RetryCallState) -> None:
+    client = retry_state.args[0] if retry_state.args else None
+    if not isinstance(client, LLMClient):
+        return
+
+    next_attempt = retry_state.attempt_number + 1
+    delay = retry_state.next_action.sleep if retry_state.next_action else 0
+    exception = retry_state.outcome.exception() if retry_state.outcome else None
+    client._notify_status(
+        LLMStatus(
+            title="Reconnexion LLM en cours",
+            message=(
+                f"Le provider LLM ne répond pas ({exception}). "
+                f"Nouvelle tentative {next_attempt}/3 dans {delay:.1f}s."
+            ),
+            suggestion="Gardez la partie ouverte : MyTalleyrand réessaie automatiquement.",
+        )
+    )
+
+
 class LLMClient:
-    """Client LLM avec retry + timeout logique et fallback local déterministe."""
+    """Client LLM avec retry + timeout logique, statuts UX et fallback local déterministe."""
 
     def __init__(
         self,
@@ -43,6 +73,7 @@ class LLMClient:
         system_prompt: str = _DEFAULT_SYSTEM_PROMPT,
         user_prompt_template: str = _DEFAULT_USER_PROMPT_TEMPLATE,
         api_key: str | None = None,
+        status_callback: Callable[[LLMStatus], None] | None = None,
     ):
         self.provider = provider
         self.model = model
@@ -53,6 +84,7 @@ class LLMClient:
         self.user_prompt_template = user_prompt_template
         self.api_key = api_key
         self._openai_client = None
+        self.status_callback = status_callback
 
     def generate_advice(self, game_state: dict[str, Any], victory_focus: str) -> LLMAdvice:
         try:
@@ -60,12 +92,28 @@ class LLMClient:
             return self._parse_remote_payload(raw)
         except Exception as exc:
             logger.warning("⚠️ LLM distant indisponible (%s), fallback local activé", exc)
+            self._notify_status(
+                LLMStatus(
+                    title="Fallback LLM activé",
+                    message="Le conseil distant est indisponible après 3 tentatives. Un conseil local est affiché à la place.",
+                    suggestion="Vérifiez votre connexion réseau ou votre clé API ; MyTalleyrand réessaiera au prochain tour analysé.",
+                )
+            )
             return self._generate_fallback_advice(game_state=game_state, victory_focus=victory_focus)
+
+    def _notify_status(self, status: LLMStatus) -> None:
+        if self.status_callback is None:
+            return
+        try:
+            self.status_callback(status)
+        except Exception as exc:  # pragma: no cover - défense contre une UI défaillante
+            logger.warning("Impossible d'afficher le statut LLM (%s)", exc)
 
     @retry(
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=0.5, min=0.5, max=4),
         retry=retry_if_exception_type((RuntimeError, ValueError, TimeoutError)),
+        before_sleep=_notify_retry_status,
         reraise=True,
     )
     def _generate_remote_advice_raw(self, game_state: dict[str, Any], victory_focus: str) -> dict[str, Any]:
@@ -153,6 +201,7 @@ class LLMClient:
             risks=[str(item).strip() for item in risks if str(item).strip()],
             confidence=confidence,
             categories=normalized_categories,
+            source="remote",
         )
 
     def _generate_fallback_advice(self, game_state: dict[str, Any], victory_focus: str) -> LLMAdvice:
@@ -188,4 +237,5 @@ class LLMClient:
             risks=["Retard scientifique", "Économie insuffisante pour soutenir l'expansion"],
             confidence=78,
             categories=categories,
+            source="local_fallback",
         )

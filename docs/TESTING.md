@@ -10,7 +10,7 @@ cd coach && python3 -m pytest
 |---------|--------|
 | `test_config.py` | Configuration multi-niveaux, surcharges env, résolution Keychain |
 | `test_keychain.py` | Adaptateur Keychain/keyring et fallbacks sûrs |
-| `test_llm_client.py` | Client LLM, fallback local, parsing strict |
+| `test_llm_client.py` | Client LLM, retry réseau avec statut UX, fallback local, parsing strict |
 | `test_watcher.py` | Surveillance fichier, déduplication turn_id, notifications gamestate invalide |
 | `test_coach_engine.py` | Déclenchement tour 1 + tous les 10 tours, historique, résilience JSON corrompu |
 | `test_pipeline_integration.py` | Chaîne watcher → coach → overlay |

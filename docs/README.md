@@ -15,7 +15,7 @@ Civ5 (Lua) ──► gamestate.json ──► watcher ──► coach ──► 
 | **Mod Lua** | `mod/Lua/GameplayScript.lua` | Exporte `gamestate.json` à chaque tour (écriture atomique, `pcall`) |
 | **Watcher** | `coach/src/watcher.py` | Poll le fichier, valide le schéma, déduplique par `turn_id` |
 | **Coach** | `coach/src/coach.py` | Décide quand analyser (tour 1, puis tous les 10 tours) |
-| **LLM Client** | `coach/src/llm_client.py` | Appel OpenAI + retry exponentiel + fallback local |
+| **LLM Client** | `coach/src/llm_client.py` | Appel OpenAI + retry exponentiel, statuts UX réseau et fallback local |
 | **Overlay** | `coach/src/overlay.py` | Affiche conseils (abstraction testable, pas de PyQt6 runtime) |
 | **Config** | `coach/src/config.py` | Multi-niveaux : settings.json → coach.user.json → Keychain → env vars |
 | **Schéma** | `coach/src/gamestate_schema.py` | Valide gamestate v0.1.0 |
@@ -41,6 +41,7 @@ priority_actions    : list[str] (3-5 items)
 risks               : list[str]
 confidence          : int (0-100)
 categories          : dict (economie/science/militaire/diplomatie → list[str])
+source              : string (remote ou local_fallback)
 ```
 
 ## Structure du projet
@@ -90,8 +91,8 @@ Variables d'environnement disponibles :
 - Tous les fichiers source < 500 lignes
 - Schéma gamestate versionné (`schema_version`)
 - Écriture atomique (tmp + rename) côté Lua avec `pcall` pour crash-safety
-- Retry exponentiel (tenacity) côté LLM
-- Fallback local déterministe si LLM indisponible
+- Retry exponentiel (tenacity) côté LLM avec statut overlay `Reconnexion LLM en cours`
+- Fallback local déterministe si LLM indisponible, signalé dans l'overlay avec reprise automatique au prochain tour analysé
 - Tests : `cd coach && python3 -m pytest`
 - Validation complète : `./scripts/validate.sh`
 

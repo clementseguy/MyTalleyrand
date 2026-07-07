@@ -54,10 +54,21 @@ class TalleyrandOverlay:
         return self.visible
 
     def show_advice(self, advice: LLMAdvice) -> None:
-        lines = [
-            f"Objectif (10 tours): {advice.objective_10_turns}",
-            "Actions prioritaires:",
-        ]
+        lines = []
+        if advice.source == "local_fallback":
+            lines.extend(
+                [
+                    "Fallback LLM activé: conseil local affiché car le provider distant est indisponible.",
+                    "Action suggérée: vérifiez votre réseau ou votre clé API ; nouvel essai automatique au prochain tour analysé.",
+                    "",
+                ]
+            )
+        lines.extend(
+            [
+                f"Objectif (10 tours): {advice.objective_10_turns}",
+                "Actions prioritaires:",
+            ]
+        )
         lines.extend([f"- {action}" for action in advice.priority_actions])
         self.last_rendered_text = "\n".join(lines)
         logger.info("💬 Overlay mis à jour avec %s actions", len(advice.priority_actions))

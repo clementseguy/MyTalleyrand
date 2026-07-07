@@ -50,6 +50,8 @@ def main() -> int:
     history_file = config.export_dir / "coach_history.json"
     overlay_state_file = config.export_dir / "overlay_state.json"
 
+    overlay = TalleyrandOverlay(state_file=overlay_state_file)
+
     llm_client = LLMClient(
         provider=config.llm_provider,
         model=config.llm_model,
@@ -59,10 +61,10 @@ def main() -> int:
         system_prompt=config.llm_system_prompt,
         user_prompt_template=config.llm_user_prompt_template,
         api_key=config.llm_api_key,
+        status_callback=lambda status: overlay.show_status(status.title, status.message, status.suggestion),
     )
     coaching_engine = CoachingEngine(llm_client=llm_client, history_file=history_file)
     coaching_engine.set_victory_focus(args.victory_focus)
-    overlay = TalleyrandOverlay(state_file=overlay_state_file)
 
     def on_new_turn(payload: dict, source_file: Path) -> None:
         logger.info(

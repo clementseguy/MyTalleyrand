@@ -31,17 +31,17 @@ Deux jalons distincts pilotent les priorités de ce backlog — ne pas les confo
 | Métrique | Valeur |
 | --- | --- |
 | **Total User Stories** | 22 |
-| **US Terminées** | 8 |
-| **US En cours (partielles)** | 4 |
+| **US Terminées** | 9 |
+| **US En cours (partielles)** | 3 |
 | **US À faire** | 9 |
 | **US Won't** | 1 |
-| **Progression** | 8/21 actives — 38% |
+| **Progression** | 9/21 actives — 43% |
 
 ### Répartition par Epic
 
 | Epic | US | Jalon dominant | Statut |
 | --- | --- | --- | --- |
-| EPIC 1 : Fondations techniques | 5 | MVP | ✅ 4/5 terminées, 🔄 1/5 partielle |
+| EPIC 1 : Fondations techniques | 5 | MVP | ✅ 5/5 terminées |
 | EPIC 2 : Interface utilisateur | 3 | MVP | 🔄 2/3 partielles, 📝 1/3 à faire |
 | EPIC 3 : Logique du coach | 5 | MVP | ✅ 2/5 terminées, 🔄 1/5 partielle, 📝 2/5 à faire |
 | EPIC 4 : Maîtrise du budget & optimisation | 6 | MVP (budget) / Could | 📝 5/6 à faire, ⚪ 1 Won't |
@@ -60,7 +60,7 @@ Deux jalons distincts pilotent les priorités de ce backlog — ne pas les confo
 ## EPIC 1 : Fondations techniques
 
 **Objectif :** Mettre en place l'infrastructure de base et sa robustesse minimale (Civ5 ↔ app ↔ LLM).
-**Statut global :** ✅ 4/5 terminées, 🔄 1/5 partielle
+**Statut global :** ✅ 5/5 terminées
 
 ---
 
@@ -177,11 +177,9 @@ Deux jalons distincts pilotent les priorités de ce backlog — ne pas les confo
 
 ### US-016 : Gestion d'erreur réseau/LLM *(proposition ajoutée)*
 
-**Statut :** 🔄 En cours · **Priorité :** 🔴 Must · **Jalon :** MVP · **Sprint :** Sprint 0
+**Statut :** ✅ Terminé · **Priorité :** 🔴 Must · **Jalon :** MVP · **Sprint :** Sprint 0
 
-**Implémentation partielle :** retry exponentiel (`tenacity`, 3 tentatives) + fallback local déterministe si LLM indisponible. La partie n'est jamais bloquée.
-
-**Reste à faire :** statut UX visible dans l'overlay ("Reconnexion en cours…", "Fallback activé").
+**Implémentation :** `coach/src/llm_client.py` émet des statuts UX pendant les retries (`Reconnexion LLM en cours`) et après échec (`Fallback LLM activé`). `coach/src/main.py` relaie ces statuts vers l'overlay, et `coach/src/overlay.py` conserve une explication visible avec le conseil local de fallback. La partie n'est jamais bloquée et le prochain tour analysé relance automatiquement le provider distant.
 
 **User Story :**
 > En tant qu'**utilisateur**, je veux **un message clair et une reprise automatique en cas de timeout ou perte réseau LLM**, afin de **ne pas rester bloqué sans feedback pendant ma partie**.
@@ -539,7 +537,7 @@ Deux jalons distincts pilotent les priorités de ce backlog — ne pas les confo
 
 **Statut :** ✅ Terminé · **Priorité :** 🟠 Should · **Jalon :** Partage public · **Sprint :** Sprint 3
 
-**Implémentation :** 26 tests pytest (8 fichiers + conftest.py) — config, LLM client, watcher, coach engine, overlay, gamestate schema, intégration pipeline. `validate.sh` (fichiers requis + XML + pytest). Smoke test `first_test.sh`.
+**Implémentation :** 29 tests pytest (8 fichiers + conftest.py) — config, LLM client, watcher, coach engine, overlay, gamestate schema, intégration pipeline. `validate.sh` (fichiers requis + XML + pytest). Smoke test `first_test.sh`.
 
 **User Story :**
 > En tant que **développeur**, je veux **des tests unitaires et d'intégration sur le pipeline Lua → JSON → LLM → Overlay**, afin de **fiabiliser l'app avant de la rendre publique**.
