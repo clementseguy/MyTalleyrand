@@ -21,16 +21,17 @@ pip install -r requirements.txt
 
 ## Configuration LLM (clé + prompts)
 
-Le coach lit 2 niveaux de configuration :
+Le coach lit la configuration non sensible depuis :
 
 1. **Base projet** : `coach/config/settings.json`
 2. **Utilisateur local** : `~/Library/Application Support/MyTalleyrand/coach.user.json`
+
+La clé OpenAI est lue en priorité depuis `TALLEYRAND_OPENAI_API_KEY`, puis depuis le Keychain macOS (`MyTalleyrand` / `openai`).
 
 Un exemple est fourni dans `coach/config/coach.user.example.json`.
 
 ### Champs configurables
 
-- `llm.api_key` : clé OpenAI.
 - `llm.system_prompt` : prompt système complet.
 - `llm.user_prompt_template` : template prompt utilisateur (doit contenir `{victory_focus}` et `{game_state_json}`).
 

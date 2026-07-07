@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+
+from src.keychain import get_api_key
 
 DEFAULT_SETTINGS_PATH = Path(__file__).resolve().parents[1] / "config" / "settings.json"
 DEFAULT_USER_SETTINGS_PATH = Path.home() / "Library" / "Application Support" / "MyTalleyrand" / "coach.user.json"
@@ -17,6 +20,9 @@ _DEFAULT_SYSTEM_PROMPT = (
     "Tu dois impérativement retourner un JSON valide avec les clés: "
     "objective_10_turns, priority_actions, risks, confidence, categories."
 )
+
+logger = logging.getLogger(__name__)
+
 
 _DEFAULT_USER_PROMPT_TEMPLATE = (
     "Objectif de victoire: {victory_focus}\n"
@@ -66,6 +72,25 @@ def _load_json_if_exists(path: Path) -> dict[str, Any]:
         return json.load(file)
 
 
+def _resolve_api_key(llm_provider: str, llm_user: dict[str, Any]) -> str | None:
+    env_key = os.getenv("TALLEYRAND_OPENAI_API_KEY")
+    if env_key:
+        return env_key
+
+    keychain_key = get_api_key(llm_provider)
+    if keychain_key:
+        return keychain_key
+
+    legacy_file_key = llm_user.get("api_key")
+    if legacy_file_key and legacy_file_key != "<OPENAI_API_KEY>":
+        logger.warning(
+            "Clé API lue depuis le fichier utilisateur legacy; migrez-la vers le Keychain macOS"
+        )
+        return str(legacy_file_key)
+
+    return None
+
+
 def load_config(settings_path: Path | None = None, user_settings_path: Path | None = None) -> AppConfig:
     """Charge la configuration depuis le JSON et applique les surcharges d'environnement."""
     resolved_settings_path = settings_path or DEFAULT_SETTINGS_PATH
@@ -92,20 +117,23 @@ def load_config(settings_path: Path | None = None, user_settings_path: Path | No
         str,
     )
 
+    llm_provider = _env_or_default("TALLEYRAND_LLM_PROVIDER", llm["provider"], str)
+    llm_api_key = _resolve_api_key(llm_provider=llm_provider, llm_user=llm_user)
+
     config = AppConfig(
         schema_version=settings["schema_version"],
         civ5_dir=_expand(_env_or_default("TALLEYRAND_CIV5_DIR", paths["civ5_user_dir"], str)),
         export_dir=_expand(_env_or_default("TALLEYRAND_EXPORT_DIR", paths["mod_export_dir"], str)),
         gamestate_file=_expand(_env_or_default("TALLEYRAND_GAMESTATE_FILE", paths["gamestate_file"], str)),
         log_file=_expand(_env_or_default("TALLEYRAND_LOG_FILE", paths["log_file"], str)),
-        llm_provider=_env_or_default("TALLEYRAND_LLM_PROVIDER", llm["provider"], str),
+        llm_provider=llm_provider,
         llm_model=_env_or_default("TALLEYRAND_LLM_MODEL", llm["model"], str),
         llm_max_tokens=_env_or_default("TALLEYRAND_LLM_MAX_TOKENS", llm["max_tokens"], int),
         llm_temperature=_env_or_default("TALLEYRAND_LLM_TEMPERATURE", llm["temperature"], float),
         llm_timeout_seconds=_env_or_default("TALLEYRAND_LLM_TIMEOUT_SECONDS", llm["timeout_seconds"], int),
         llm_system_prompt=system_prompt,
         llm_user_prompt_template=user_prompt_template,
-        llm_api_key=_env_or_default("TALLEYRAND_OPENAI_API_KEY", llm_user.get("api_key"), str),
+        llm_api_key=llm_api_key,
         overlay_width=_env_or_default("TALLEYRAND_OVERLAY_WIDTH", overlay["width"], int),
         overlay_height=_env_or_default("TALLEYRAND_OVERLAY_HEIGHT", overlay["height"], int),
         overlay_opacity=_env_or_default("TALLEYRAND_OVERLAY_OPACITY", overlay["opacity"], float),

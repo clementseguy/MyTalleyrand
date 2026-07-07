@@ -23,7 +23,7 @@ FILES=(
   "mod/XML/Text.xml"
   "mod/Lua/GameplayScript.lua"
   "mod/SQL/ModSchema.sql"
-  "script/install_macos.sh"
+  "scripts/install_macos.sh"
   "coach/README.md"
   "coach/config/coach.user.example.json"
   "coach/src/main.py"

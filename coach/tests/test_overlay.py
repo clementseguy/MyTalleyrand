@@ -43,3 +43,17 @@ def test_overlay_survives_corrupt_state_file(tmp_path: Path):
 
     assert overlay.position.x == 30
     assert overlay.visible is True
+
+
+def test_overlay_renders_status_message(tmp_path: Path):
+    overlay = TalleyrandOverlay(state_file=tmp_path / "state.json")
+
+    overlay.show_status(
+        "Problème gamestate",
+        "gamestate.json est introuvable.",
+        "Vérifiez que le mod MyTalleyrand est activé.",
+    )
+
+    assert "Problème gamestate" in overlay.last_rendered_text
+    assert "Action suggérée" in overlay.last_rendered_text
+    assert "mod MyTalleyrand" in overlay.last_rendered_text

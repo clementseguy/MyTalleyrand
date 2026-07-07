@@ -61,3 +61,12 @@ class TalleyrandOverlay:
         lines.extend([f"- {action}" for action in advice.priority_actions])
         self.last_rendered_text = "\n".join(lines)
         logger.info("💬 Overlay mis à jour avec %s actions", len(advice.priority_actions))
+
+    def show_status(self, title: str, message: str, suggestion: str) -> None:
+        self.last_rendered_text = "\n".join(
+            [
+                f"{title}: {message}",
+                f"Action suggérée: {suggestion}",
+            ]
+        )
+        logger.warning("⚠️ Overlay statut: %s", title)

@@ -13,7 +13,7 @@ from src.coach import CoachingEngine
 from src.config import load_config, validate_config
 from src.llm_client import LLMClient
 from src.overlay import TalleyrandOverlay
-from src.watcher import GameStateWatcher
+from src.watcher import GameStateIssue, GameStateWatcher
 
 logger = logging.getLogger(__name__)
 
@@ -75,11 +75,15 @@ def main() -> int:
         if advice is not None:
             overlay.show_advice(advice)
 
+    def on_gamestate_issue(issue: GameStateIssue, source_file: Path) -> None:
+        logger.warning("Problème gamestate détecté depuis %s: %s", source_file, issue.message)
+        overlay.show_status("Problème gamestate", issue.message, issue.suggestion)
+
     logger.info("🎮 Démarrage de Talleyrand Coach...")
     logger.info("✅ Configuration chargée (schema=%s)", config.schema_version)
     logger.info("📁 Surveillance prévue: %s", config.gamestate_file)
 
-    watcher = GameStateWatcher(config.gamestate_file, on_new_turn)
+    watcher = GameStateWatcher(config.gamestate_file, on_new_turn, issue_callback=on_gamestate_issue)
     watcher.start()
 
     if args.once:

@@ -9,6 +9,7 @@ openai>=1.7.0
 
 # Utilitaires
 tenacity>=8.2.3
+keyring>=24.3.0
 
 # Tests
 pytest>=7.4.0

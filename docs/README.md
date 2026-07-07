@@ -17,9 +17,9 @@ Civ5 (Lua) ──► gamestate.json ──► watcher ──► coach ──► 
 | **Coach** | `coach/src/coach.py` | Décide quand analyser (tour 1, puis tous les 10 tours) |
 | **LLM Client** | `coach/src/llm_client.py` | Appel OpenAI + retry exponentiel + fallback local |
 | **Overlay** | `coach/src/overlay.py` | Affiche conseils (abstraction testable, pas de PyQt6 runtime) |
-| **Config** | `coach/src/config.py` | Multi-niveaux : settings.json → coach.user.json → env vars |
+| **Config** | `coach/src/config.py` | Multi-niveaux : settings.json → coach.user.json → Keychain → env vars |
 | **Schéma** | `coach/src/gamestate_schema.py` | Valide gamestate v0.1.0 |
-| **Keychain** | `coach/src/keychain.py` | Stubs Keychain macOS (lève `NotImplementedError` — intégration keyring prévue) |
+| **Keychain** | `coach/src/keychain.py` | Stockage/récupération/suppression des clés API via `keyring` et le Keychain macOS |
 
 ### Format gamestate (v0.1.0)
 
@@ -60,23 +60,23 @@ MyTalleyrand/
 │   ├── XML/, SQL/, Art/
 │   └── README.md
 ├── docs/                              # cette documentation
-├── script/install_macos.sh            # installation automatisée
-└── scripts/validate.sh, start.sh      # validation et démarrage
+└── scripts/                           # installation, validation et démarrage
 ```
 
 ## Configuration
 
-Trois niveaux de configuration (priorité croissante) :
+Configuration lue par le coach :
 
 1. **`coach/config/settings.json`** — valeurs par défaut (chemins, modèle LLM, overlay)
-2. **`~/Library/Application Support/MyTalleyrand/coach.user.json`** — clé API, prompts personnalisés
-3. **Variables d'environnement** — `TALLEYRAND_OPENAI_API_KEY`, `TALLEYRAND_LLM_MODEL`, etc.
+2. **`~/Library/Application Support/MyTalleyrand/coach.user.json`** — prompts personnalisés et autres préférences non sensibles
+3. **Keychain macOS** — clé API OpenAI stockée par `keyring` sous le service `MyTalleyrand`
+4. **Variables d'environnement** — `TALLEYRAND_OPENAI_API_KEY`, `TALLEYRAND_LLM_MODEL`, etc. La variable `TALLEYRAND_OPENAI_API_KEY` reste prioritaire pour le développement/CI.
 
 Variables d'environnement disponibles :
 
 | Variable | Défaut | Description |
 |----------|--------|-------------|
-| `TALLEYRAND_OPENAI_API_KEY` | — | Clé API OpenAI |
+| `TALLEYRAND_OPENAI_API_KEY` | Keychain macOS | Clé API OpenAI, prioritaire si définie |
 | `TALLEYRAND_LLM_PROVIDER` | `openai` | Provider LLM |
 | `TALLEYRAND_LLM_MODEL` | `gpt-4o-mini` | Modèle |
 | `TALLEYRAND_LLM_SYSTEM_PROMPT` | (interne) | Prompt système |

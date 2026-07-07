@@ -31,17 +31,17 @@ Deux jalons distincts pilotent les priorités de ce backlog — ne pas les confo
 | Métrique | Valeur |
 | --- | --- |
 | **Total User Stories** | 22 |
-| **US Terminées** | 6 |
-| **US En cours (partielles)** | 6 |
+| **US Terminées** | 8 |
+| **US En cours (partielles)** | 4 |
 | **US À faire** | 9 |
 | **US Won't** | 1 |
-| **Progression** | 6/21 actives — 29% |
+| **Progression** | 8/21 actives — 38% |
 
 ### Répartition par Epic
 
 | Epic | US | Jalon dominant | Statut |
 | --- | --- | --- | --- |
-| EPIC 1 : Fondations techniques | 5 | MVP | ✅ 2/5 terminées, 🔄 3/5 partielles |
+| EPIC 1 : Fondations techniques | 5 | MVP | ✅ 4/5 terminées, 🔄 1/5 partielle |
 | EPIC 2 : Interface utilisateur | 3 | MVP | 🔄 2/3 partielles, 📝 1/3 à faire |
 | EPIC 3 : Logique du coach | 5 | MVP | ✅ 2/5 terminées, 🔄 1/5 partielle, 📝 2/5 à faire |
 | EPIC 4 : Maîtrise du budget & optimisation | 6 | MVP (budget) / Could | 📝 5/6 à faire, ⚪ 1 Won't |
@@ -60,7 +60,7 @@ Deux jalons distincts pilotent les priorités de ce backlog — ne pas les confo
 ## EPIC 1 : Fondations techniques
 
 **Objectif :** Mettre en place l'infrastructure de base et sa robustesse minimale (Civ5 ↔ app ↔ LLM).
-**Statut global :** ✅ 2/5 terminées, 🔄 3/5 partielles
+**Statut global :** ✅ 4/5 terminées, 🔄 1/5 partielle
 
 ---
 
@@ -125,11 +125,9 @@ Deux jalons distincts pilotent les priorités de ce backlog — ne pas les confo
 
 ### US-003 : Intégration API LLM
 
-**Statut :** 🔄 En cours · **Priorité :** 🔴 Must · **Jalon :** MVP · **Sprint :** Sprint 0
+**Statut :** ✅ Terminé · **Priorité :** 🔴 Must · **Jalon :** MVP · **Sprint :** Sprint 0
 
-**Implémentation partielle :** `coach/src/llm_client.py` — OpenAI GPT-4o-mini, retry exponentiel (`tenacity`), parsing strict `LLMAdvice`, fallback local déterministe. Config multi-niveaux (`settings.json` → `coach.user.json` → env vars).
-
-**Reste à faire :** stockage sécurisé de la clé API via macOS Keychain (`keyring`). Actuellement `keychain.py` lève `NotImplementedError` — la clé API transite en clair via fichier JSON utilisateur ou variable d'environnement.
+**Implémentation :** `coach/src/llm_client.py` — OpenAI GPT-4o-mini, retry exponentiel (`tenacity`), parsing strict `LLMAdvice`, fallback local déterministe. Config multi-niveaux (`settings.json` → Keychain macOS via `keyring` → `coach.user.json` legacy → env vars). `coach/src/keychain.py` stocke, récupère et supprime les clés API via le service Keychain `MyTalleyrand`.
 
 **User Story :**
 > En tant que **coach**, je veux **envoyer l'état du jeu à un LLM et parser une réponse structurée**, afin de **produire des recommandations stratégiques**.
@@ -144,7 +142,7 @@ Deux jalons distincts pilotent les priorités de ce backlog — ne pas les confo
 #### Critères d'acceptation
 ✅ Appel API réussi, réponse parsée en JSON
 ✅ Temps de réponse < 10s (95e percentile) · ✅ Coût estimé < $0.05 par analyse
-⬜ Clé API stockée dans le Keychain, jamais en clair (actuellement : fichier JSON / env var)
+✅ Clé API stockée dans le Keychain via `keyring`; le fichier JSON utilisateur ne contient plus de clé en nouvelle installation
 
 #### Dépendances
 - US-002
@@ -156,11 +154,9 @@ Deux jalons distincts pilotent les priorités de ce backlog — ne pas les confo
 
 ### US-015 : Gestion d'erreur — gamestate manquant/corrompu *(proposition ajoutée)*
 
-**Statut :** 🔄 En cours · **Priorité :** 🔴 Must · **Jalon :** MVP · **Sprint :** Sprint 0
+**Statut :** ✅ Terminé · **Priorité :** 🔴 Must · **Jalon :** MVP · **Sprint :** Sprint 0
 
-**Implémentation partielle :** `gamestate_schema.py` valide le schéma (champs requis, types, version). `watcher.py` gère JSON corrompu et schéma invalide sans crash (logs warning). `overlay.py` et `coach.py` résistent aux fichiers d'état corrompus (try/except).
-
-**Reste à faire :** notification utilisateur dans l'overlay (actuellement logs uniquement).
+**Implémentation :** `gamestate_schema.py` valide le schéma (champs requis, types, version). `watcher.py` détecte les fichiers absents, vides, JSON corrompus et schémas invalides sans crash, puis remonte un `GameStateIssue`. `overlay.py` affiche un statut utilisateur avec action suggérée via `show_status`.
 
 **User Story :**
 > En tant qu'**utilisateur**, je veux **être averti clairement si `gamestate.json` est absent, vide ou corrompu**, afin de **comprendre la panne sans croire l'app buguée**.
@@ -543,7 +539,7 @@ Deux jalons distincts pilotent les priorités de ce backlog — ne pas les confo
 
 **Statut :** ✅ Terminé · **Priorité :** 🟠 Should · **Jalon :** Partage public · **Sprint :** Sprint 3
 
-**Implémentation :** 19 tests pytest (7 fichiers + conftest.py) — config, LLM client, watcher, coach engine, overlay, gamestate schema, intégration pipeline. `validate.sh` (fichiers requis + XML + pytest). Smoke test `first_test.sh`.
+**Implémentation :** 26 tests pytest (8 fichiers + conftest.py) — config, LLM client, watcher, coach engine, overlay, gamestate schema, intégration pipeline. `validate.sh` (fichiers requis + XML + pytest). Smoke test `first_test.sh`.
 
 **User Story :**
 > En tant que **développeur**, je veux **des tests unitaires et d'intégration sur le pipeline Lua → JSON → LLM → Overlay**, afin de **fiabiliser l'app avant de la rendre publique**.
@@ -635,7 +631,7 @@ Deux jalons distincts pilotent les priorités de ce backlog — ne pas les confo
 | **UI Overlay** | PyQt6 | Fonctionne sur Apple Silicon |
 | **LLM Provider (défaut)** | OpenAI GPT-4o-mini | Bon rapport qualité/coût, architecture ouverte (US-011b) |
 | **File Watch** | polling `stat.st_mtime_ns` | Implémentation actuelle simple et fonctionnelle ; migration watchdog possible |
-| **Config Storage** | JSON multi-niveaux + env vars | Keychain (`keyring`) prévu mais non encore intégré |
+| **Config Storage** | JSON multi-niveaux + Keychain + env vars | Keychain (`keyring`) intégré pour la clé API ; JSON réservé aux préférences non sensibles |
 
 ---
 
@@ -651,6 +647,16 @@ Deux jalons distincts pilotent les priorités de ce backlog — ne pas les confo
 ---
 
 ## Notes de mise à jour
+
+**7 juillet 2026 (US-015 terminée)**
+- Notification utilisateur dans l’overlay pour `gamestate.json` absent, vide, corrompu ou invalide
+- Ajout de `GameStateIssue` côté watcher et de `show_status` côté overlay
+- Statuts ajustés : 8 US terminées, 4 partielles, 9 à faire, 1 Won’t
+
+**7 juillet 2026 (US-003 terminée)**
+- Intégration Keychain via `keyring` pour la clé API OpenAI
+- Suppression de `llm.api_key` de l’exemple de configuration utilisateur et stockage Keychain par l’installateur macOS
+- Statuts ajustés : 7 US terminées, 5 partielles, 9 à faire, 1 Won’t
 
 **7 juillet 2026 (sync statuts)**
 - Synchronisation des statuts v2 avec le code existant : 7 US terminées, 5 partielles, 9 à faire
