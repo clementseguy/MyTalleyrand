@@ -10,9 +10,9 @@ import time
 from pathlib import Path
 
 from src.coach import CoachingEngine
-from src.config import load_config, validate_config
+from src.config import ConfigError, load_config, validate_config
 from src.llm_client import LLMClient
-from src.overlay import TalleyrandOverlay
+from src.overlay import OverlaySettings, TalleyrandOverlay
 from src.watcher import GameStateIssue, GameStateWatcher
 
 logger = logging.getLogger(__name__)
@@ -38,7 +38,13 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    config = load_config()
+    try:
+        config = load_config()
+    except ConfigError as exc:
+        logging.basicConfig(level=logging.ERROR, format="%(levelname)s - %(message)s")
+        logger.error("Configuration invalide: %s", exc)
+        return 1
+
     _configure_logging(config.log_file)
 
     errors = validate_config(config)
@@ -50,7 +56,15 @@ def main() -> int:
     history_file = config.export_dir / "coach_history.json"
     overlay_state_file = config.export_dir / "overlay_state.json"
 
-    overlay = TalleyrandOverlay(state_file=overlay_state_file)
+    overlay = TalleyrandOverlay(
+        state_file=overlay_state_file,
+        settings=OverlaySettings(
+            width=config.overlay_width,
+            height=config.overlay_height,
+            opacity=config.overlay_opacity,
+        ),
+        enable_qt=not args.once,
+    )
 
     llm_client = LLMClient(
         provider=config.llm_provider,

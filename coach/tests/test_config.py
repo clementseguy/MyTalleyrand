@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from src.config import load_config, validate_config
+from src.config import DEFAULT_SYSTEM_PROMPT, DEFAULT_USER_PROMPT_TEMPLATE, load_config, validate_config
 
 
 def _settings_template(tmp_path: Path) -> Path:
@@ -118,3 +118,48 @@ def test_validate_config_rejects_invalid_prompt_template(tmp_path: Path):
     errors = validate_config(bad_config)
 
     assert "LLM user prompt template must include {game_state_json}" in errors
+
+
+def test_load_config_reports_missing_settings_file(tmp_path: Path):
+    missing = tmp_path / "missing-settings.json"
+
+    try:
+        load_config(missing)
+    except Exception as exc:
+        assert "introuvable" in str(exc)
+        assert str(missing) in str(exc)
+    else:
+        raise AssertionError("load_config aurait dû refuser un settings.json absent")
+
+
+def test_load_config_reports_corrupt_settings_file(tmp_path: Path):
+    settings_path = tmp_path / "settings.json"
+    settings_path.write_text("{bad json", encoding="utf-8")
+
+    try:
+        load_config(settings_path)
+    except Exception as exc:
+        assert "JSON invalide" in str(exc)
+        assert str(settings_path) in str(exc)
+    else:
+        raise AssertionError("load_config aurait dû refuser un settings.json corrompu")
+
+
+def test_load_config_reports_missing_required_section(tmp_path: Path):
+    settings_path = tmp_path / "settings.json"
+    settings_path.write_text(json.dumps({"schema_version": "0.1.0"}), encoding="utf-8")
+
+    try:
+        load_config(settings_path)
+    except Exception as exc:
+        assert "section 'paths'" in str(exc)
+    else:
+        raise AssertionError("load_config aurait dû refuser une section obligatoire absente")
+
+
+def test_user_example_matches_prompt_constants():
+    example_path = Path(__file__).resolve().parents[1] / "config" / "coach.user.example.json"
+    payload = json.loads(example_path.read_text(encoding="utf-8"))
+
+    assert payload["llm"]["system_prompt"] == DEFAULT_SYSTEM_PROMPT
+    assert payload["llm"]["user_prompt_template"] == DEFAULT_USER_PROMPT_TEMPLATE

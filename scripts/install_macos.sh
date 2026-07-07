@@ -3,7 +3,10 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 INSTALL_BASE="${INSTALL_BASE:-$HOME/Applications/MyTalleyrandCoach}"
-CIV5_DOCS_DIR="${CIV5_DOCS_DIR:-$HOME/Documents/Aspyr/Sid Meier's Civilization 5}"
+CIV5_DOCS_DIR="${CIV5_DOCS_DIR:-}"
+if [[ -z "$CIV5_DOCS_DIR" ]]; then
+  CIV5_DOCS_DIR="$HOME/Documents/Aspyr/Sid Meier's Civilization 5"
+fi
 MODS_DIR="$CIV5_DOCS_DIR/MODS"
 MOD_TARGET_DIR="$MODS_DIR/MyTalleyrand"
 EXPORT_DIR="$MOD_TARGET_DIR/export"
@@ -38,6 +41,15 @@ python3 -m venv "$INSTALL_BASE/coach/.venv"
 "$INSTALL_BASE/coach/.venv/bin/pip" install -r "$INSTALL_BASE/coach/requirements.txt" >/dev/null
 printf "✅ Environnement Python prêt\n"
 
+cat > "$INSTALL_BASE/start_coach.command" <<EOF
+#!/usr/bin/env bash
+set -euo pipefail
+cd "$INSTALL_BASE/coach"
+exec .venv/bin/python src/main.py
+EOF
+chmod +x "$INSTALL_BASE/start_coach.command"
+printf "✅ Lanceur double-cliquable créé: %s\n" "$INSTALL_BASE/start_coach.command"
+
 mkdir -p "$USER_CONFIG_DIR"
 if [[ ! -f "$USER_CONFIG_FILE" ]]; then
   cp "$ROOT_DIR/coach/config/coach.user.example.json" "$USER_CONFIG_FILE"
@@ -47,24 +59,22 @@ else
 fi
 
 if [[ -z "$COACH_API_KEY" ]]; then
-  read -r -p "Entrez votre clé OpenAI (laisser vide pour fallback local) : " COACH_API_KEY || true
+  read -r -s -p "Entrez votre clé OpenAI (laisser vide pour fallback local) : " COACH_API_KEY || true
+  printf "\n"
 fi
 if [[ -n "$COACH_API_KEY" ]]; then
-  "$INSTALL_BASE/coach/.venv/bin/python" - "$USER_CONFIG_FILE" "$COACH_API_KEY" <<'PY'
+  "$INSTALL_BASE/coach/.venv/bin/python" - "$USER_CONFIG_FILE" <<'PY'
 import json
 import pathlib
 import sys
 
-from keyring import set_password
-
 cfg_path = pathlib.Path(sys.argv[1])
-api_key = sys.argv[2]
 data = json.loads(cfg_path.read_text(encoding="utf-8"))
 llm = data.setdefault("llm", {})
 llm.pop("api_key", None)
 cfg_path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-set_password("MyTalleyrand", "openai", api_key)
 PY
+  printf "%s" "$COACH_API_KEY" | PYTHONPATH="$INSTALL_BASE/coach" "$INSTALL_BASE/coach/.venv/bin/python" -m src.keychain set openai --stdin
   printf "✅ Clé API enregistrée dans le Keychain macOS (service MyTalleyrand, compte openai)\n"
 fi
 

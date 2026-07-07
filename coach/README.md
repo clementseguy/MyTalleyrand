@@ -28,7 +28,16 @@ Le coach lit la configuration non sensible depuis :
 
 La clé OpenAI est lue en priorité depuis `TALLEYRAND_OPENAI_API_KEY`, puis depuis le Keychain macOS (`MyTalleyrand` / `openai`).
 
-Un exemple est fourni dans `coach/config/coach.user.example.json`.
+Un exemple est fourni dans `coach/config/coach.user.example.json`. Les constantes de `src.config` font foi ; régénérez l'exemple avec `python3 coach/scripts/generate_user_example.py` depuis la racine du dépôt.
+
+Gestion manuelle de la clé sans relancer l'installateur :
+
+```bash
+cd coach
+python3 -m src.keychain set openai
+python3 -m src.keychain get openai
+python3 -m src.keychain delete openai
+```
 
 ### Champs configurables
 
@@ -37,6 +46,10 @@ Un exemple est fourni dans `coach/config/coach.user.example.json`.
 
 > Priorité des variables d'environnement :
 > `TALLEYRAND_OPENAI_API_KEY`, `TALLEYRAND_LLM_SYSTEM_PROMPT`, `TALLEYRAND_LLM_USER_PROMPT_TEMPLATE`.
+
+## Overlay
+
+L'overlay utilise la police `Inter` si elle est installée sur macOS, puis bascule automatiquement sur Helvetica/Arial/sans-serif. `Inter` n'est pas embarquée : c'est une préférence visuelle optionnelle, pas une dépendance obligatoire.
 
 ## Lancement
 

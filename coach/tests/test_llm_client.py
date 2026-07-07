@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import httpx
+import pytest
+from openai import APIConnectionError, APIError, APITimeoutError, RateLimitError
+
 from tests.conftest import make_gamestate
 
 from src.llm_client import LLMClient
@@ -77,13 +81,28 @@ def test_generate_advice_notifies_fallback_status_when_remote_fails(monkeypatch)
     assert "prochain tour" in statuses[0].suggestion
 
 
-def test_remote_retry_notifies_reconnection_status():
+def _openai_exception(kind: str):
+    request = httpx.Request("POST", "https://api.openai.test/responses")
+    if kind == "timeout":
+        return APITimeoutError(request)
+    if kind == "connection":
+        return APIConnectionError(request=request)
+    if kind == "rate_limit":
+        response = httpx.Response(429, request=request)
+        return RateLimitError("rate limited", response=response, body=None)
+    if kind == "api_error":
+        return APIError("server error", request, body=None)
+    raise AssertionError(f"exception non prévue: {kind}")
+
+
+@pytest.mark.parametrize("exception_kind", ["timeout", "connection", "rate_limit", "api_error"])
+def test_remote_retry_notifies_reconnection_status_for_openai_transport_errors(exception_kind):
     statuses = []
     client = LLMClient(provider="openai", model="gpt-4o-mini", status_callback=statuses.append, api_key="test")
 
     class FailingResponses:
         def create(self, **_kwargs):
-            raise TimeoutError("timeout réseau")
+            raise _openai_exception(exception_kind)
 
     class FailingClient:
         responses = FailingResponses()
@@ -98,3 +117,14 @@ def test_remote_retry_notifies_reconnection_status():
         "Reconnexion LLM en cours",
     ]
     assert statuses[-1].title == "Fallback LLM activé"
+
+
+def test_remote_parsing_error_does_not_emit_reconnection_status(monkeypatch):
+    statuses = []
+    client = LLMClient(provider="openai", model="gpt-4o-mini", status_callback=statuses.append)
+    monkeypatch.setattr(client, "_generate_remote_advice_raw", lambda *_args, **_kwargs: {})
+
+    advice = client.generate_advice(make_gamestate(), victory_focus="science")
+
+    assert advice.source == "local_fallback"
+    assert [status.title for status in statuses] == ["Fallback LLM activé"]

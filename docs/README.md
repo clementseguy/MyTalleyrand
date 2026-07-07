@@ -16,7 +16,7 @@ Civ5 (Lua) ──► gamestate.json ──► watcher ──► coach ──► 
 | **Watcher** | `coach/src/watcher.py` | Poll le fichier, valide le schéma, déduplique par `turn_id` |
 | **Coach** | `coach/src/coach.py` | Décide quand analyser (tour 1, puis tous les 10 tours) |
 | **LLM Client** | `coach/src/llm_client.py` | Appel OpenAI + retry exponentiel, statuts UX réseau et fallback local |
-| **Overlay** | `coach/src/overlay.py` | Affiche conseils (abstraction testable, pas de PyQt6 runtime) |
+| **Overlay** | `coach/src/overlay.py` | Affiche conseils via backend PyQt6 runtime + backend texte pour tests/headless |
 | **Config** | `coach/src/config.py` | Multi-niveaux : settings.json → coach.user.json → Keychain → env vars |
 | **Schéma** | `coach/src/gamestate_schema.py` | Valide gamestate v0.1.0 |
 | **Keychain** | `coach/src/keychain.py` | Stockage/récupération/suppression des clés API via `keyring` et le Keychain macOS |
@@ -52,12 +52,12 @@ MyTalleyrand/
 │   ├── config/settings.json           # config par défaut (chemins, LLM, overlay)
 │   ├── config/coach.user.example.json # exemple config utilisateur
 │   ├── config/gamestate.schema.v0.json
-│   ├── src/                           # 8 modules Python (803 lignes)
-│   ├── tests/                         # 7 fichiers pytest (390 lignes)
-│   └── scripts/                       # run.sh, test.sh, lint.sh, first_test.sh
+│   ├── src/                           # modules Python du coach
+│   ├── tests/                         # tests pytest
+│   └── scripts/                       # run/test/lint + génération exemple utilisateur
 ├── mod/
 │   ├── MyTalleyrand.modinfo
-│   ├── Lua/GameplayScript.lua         # 125 lignes — export gamestate
+│   ├── Lua/GameplayScript.lua         # export gamestate
 │   ├── XML/, SQL/, Art/
 │   └── README.md
 ├── docs/                              # cette documentation
@@ -72,6 +72,18 @@ Configuration lue par le coach :
 2. **`~/Library/Application Support/MyTalleyrand/coach.user.json`** — prompts personnalisés et autres préférences non sensibles
 3. **Keychain macOS** — clé API OpenAI stockée par `keyring` sous le service `MyTalleyrand`
 4. **Variables d'environnement** — `TALLEYRAND_OPENAI_API_KEY`, `TALLEYRAND_LLM_MODEL`, etc. La variable `TALLEYRAND_OPENAI_API_KEY` reste prioritaire pour le développement/CI.
+
+Commande utile pour gérer la clé OpenAI sans relancer l'installateur :
+
+```bash
+cd coach
+python3 -m src.keychain set openai   # saisie masquée
+printf "%s" "$TALLEYRAND_OPENAI_API_KEY" | python3 -m src.keychain set openai --stdin
+python3 -m src.keychain get openai
+python3 -m src.keychain delete openai
+```
+
+Le fichier `coach/config/coach.user.example.json` est dérivé des constantes publiques de `src.config`; utilisez `python3 coach/scripts/generate_user_example.py` depuis la racine du dépôt après toute modification des prompts par défaut.
 
 Variables d'environnement disponibles :
 

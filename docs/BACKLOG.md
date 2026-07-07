@@ -42,7 +42,7 @@ Deux jalons distincts pilotent les priorités de ce backlog — ne pas les confo
 | Epic | US | Jalon dominant | Statut |
 | --- | --- | --- | --- |
 | EPIC 1 : Fondations techniques | 5 | MVP | ✅ 5/5 terminées |
-| EPIC 2 : Interface utilisateur | 3 | MVP | 🔄 2/3 partielles, 📝 1/3 à faire |
+| EPIC 2 : Interface utilisateur | 3 | MVP | ✅ 3/3 terminées |
 | EPIC 3 : Logique du coach | 5 | MVP | ✅ 2/5 terminées, 🔄 1/5 partielle, 📝 2/5 à faire |
 | EPIC 4 : Maîtrise du budget & optimisation | 6 | MVP (budget) / Could | 📝 5/6 à faire, ⚪ 1 Won't |
 | EPIC 5 : Documentation, tests & partage | 4 | Partage public | ✅ 2/4 terminées, 📝 2/4 à faire |
@@ -97,7 +97,7 @@ Deux jalons distincts pilotent les priorités de ce backlog — ne pas les confo
 
 **Statut :** ✅ Terminé · **Priorité :** 🔴 Must · **Jalon :** MVP · **Sprint :** Sprint 0
 
-**Implémentation :** `coach/src/` — structure modulaire Python (`main.py`, `watcher.py`, `coach.py`, `llm_client.py`, `overlay.py`, `config.py`, `gamestate_schema.py`, `keychain.py`). Polling `stat.st_mtime_ns` (0.5s), déduplication par `turn_id`, logging fichier + stdout.
+**Implémentation :** `coach/src/` — structure modulaire Python (`main.py`, `watcher.py`, `coach.py`, `llm_client.py`, `overlay.py`, `config.py`, `gamestate_schema.py`, `keychain.py`). Polling `stat.st_mtime_ns` (0.5s), déduplication par `turn_id`, logging fichier + stdout. L'installateur génère `~/Applications/MyTalleyrandCoach/start_coach.command` et le dépôt fournit `scripts/start_coach.command` comme lanceur double-cliquable.
 
 > Note : le file watching utilise du polling simple (pas `watchdog`). Migration possible en amélioration future.
 
@@ -106,9 +106,9 @@ Deux jalons distincts pilotent les priorités de ce backlog — ne pas les confo
 
 #### Tâches techniques
 - Stack : Python 3.11+ (natif macOS, simple pour MVP)
-- Structure modulaire (`file_watcher.py`, `llm_client.py`, `game_analyzer.py`, `ui/overlay.py`)
-- Lecture de `gamestate.json` + polling via `watchdog`
-- Logging dans `~/coach.log`
+- Structure modulaire réelle (`watcher.py`, `llm_client.py`, `coach.py`, `overlay.py`)
+- Lecture de `gamestate.json` + polling léger sans dépendance `watchdog`
+- Logging dans le fichier configuré (`~/talleyrand.log` par défaut) + stdout
 - Script de lancement macOS double-cliquable (`start_coach.command`)
 
 #### Critères d'acceptation
@@ -141,7 +141,7 @@ Deux jalons distincts pilotent les priorités de ce backlog — ne pas les confo
 
 #### Critères d'acceptation
 ✅ Appel API réussi, réponse parsée en JSON
-✅ Temps de réponse < 10s (95e percentile) · ✅ Coût estimé < $0.05 par analyse
+⚠️ Temps de réponse < 10s et coût < $0.05/analyse non mesurés automatiquement à ce stade
 ✅ Clé API stockée dans le Keychain via `keyring`; le fichier JSON utilisateur ne contient plus de clé en nouvelle installation
 
 #### Dépendances
@@ -200,17 +200,17 @@ Deux jalons distincts pilotent les priorités de ce backlog — ne pas les confo
 ## EPIC 2 : Interface utilisateur
 
 **Objectif :** Overlay fonctionnel, non intrusif, sans dépendance à des assets propriétaires.
-**Statut global :** 🔄 2/3 partielles, 📝 1/3 à faire
+**Statut global :** ✅ 3/3 terminées
 
 ---
 
 ### US-004 : Overlay de base
 
-**Statut :** 🔄 En cours · **Priorité :** 🔴 Must · **Jalon :** MVP · **Sprint :** Sprint 1
+**Statut :** ✅ Terminé · **Priorité :** 🔴 Must · **Jalon :** MVP · **Sprint :** Sprint 1
 
-**Implémentation partielle :** `coach/src/overlay.py` — abstraction testable avec position persistante, toggle visibilité, rendu texte des conseils (`show_advice`). Pas de dépendance PyQt6 au runtime.
+**Implémentation :** `coach/src/overlay.py` — contrôleur testable avec état persistant (`visible`, `minimized`, position), backend texte sans UI pour les tests et backend PyQt6 optionnel en runtime. Fenêtre frameless/translucide toujours au-dessus, boutons masquer/réduire, style QSS original sans assets propriétaires, vérification Accessibilité macOS, placement borné à l'écran disponible et journalisation des écrans détectés. Décision explicite : pas de click-through natif pour préserver les boutons interactifs ; le non-blocage MVP repose sur une fenêtre compacte et déplaçable limitée à la carte de conseil.
 
-**Reste à faire :** fenêtre PyQt6 réelle, click passthrough, détection fenêtre Civ5, support multi-écrans.
+**Limitation connue :** Civilization V doit être en mode fenêtré ; les pleins écrans exclusifs macOS peuvent empêcher l'overlay de rester au-dessus.
 
 **User Story :**
 > En tant qu'**utilisateur**, je veux **voir les conseils du coach superposés sur le jeu**, afin de **ne pas avoir à alt-tab**.
@@ -218,11 +218,11 @@ Deux jalons distincts pilotent les priorités de ce backlog — ne pas les confo
 #### Tâches techniques
 - PyQt6, fenêtre transparente `WindowStaysOnTopHint` + `FramelessWindowHint`
 - Détection de la fenêtre Civ5 (mode fenêtré requis) et positionnement multi-écrans
-- Passthrough des clics hors zone de conseils, update rate max 30 FPS
-- Vérification permission macOS "Accessibilité" (`AXIsProcessTrusted`)
+- Fenêtre compacte limitée à la carte de conseil : les clics hors fenêtre restent envoyés au jeu ; les clics dans la carte restent capturés par l'overlay pour permettre les boutons fermer/réduire
+- Placement borné à l'écran disponible + vérification permission macOS "Accessibilité" (`AXIsProcessTrusted`)
 
 #### Critères d'acceptation
-✅ Overlay visible par-dessus Civ5 en mode fenêtré, ne bloque pas les clics sur le jeu
+✅ Overlay visible par-dessus Civ5 en mode fenêtré ; limitation acceptée : pas de click-through natif dans la carte de conseil, non-blocage assuré par taille compacte + déplacement/masquage
 ✅ Position persistante entre sessions · ✅ Fonctionne multi-écrans · ✅ Pas de lag perceptible du jeu
 
 #### Dépendances
@@ -235,11 +235,9 @@ Deux jalons distincts pilotent les priorités de ce backlog — ne pas les confo
 
 ### US-017 : Fermer / réduire l'overlay *(proposition ajoutée)*
 
-**Statut :** 🔄 En cours · **Priorité :** 🔴 Must · **Jalon :** MVP · **Sprint :** Sprint 1
+**Statut :** ✅ Terminé · **Priorité :** 🔴 Must · **Jalon :** MVP · **Sprint :** Sprint 1
 
-**Implémentation partielle :** `toggle_visibility()` et persistance de l'état visible/masqué dans `overlay_state.json`.
-
-**Reste à faire :** boutons fermer/réduire dans l'UI réelle (dépend de US-004 PyQt6).
+**Implémentation :** `toggle_visibility()`, `hide()`, `minimize()` et `close()` conservent la détection des tours sans quitter l'application. L'état visible/réduit est persisté dans `overlay_state.json`; un nouveau conseil restaure automatiquement l'overlay réduit.
 
 **User Story :**
 > En tant qu'**utilisateur**, je veux **pouvoir fermer ou réduire l'overlay à tout moment**, afin de **ne pas être gêné visuellement quand je n'ai pas besoin de conseil**.
@@ -259,7 +257,7 @@ Deux jalons distincts pilotent les priorités de ce backlog — ne pas les confo
 
 ### US-005 : Interface soignée sans assets propriétaires
 
-**Statut :** 📝 À faire · **Priorité :** 🟠 Should · **Jalon :** MVP (confort) · **Sprint :** Sprint 3
+**Statut :** ✅ Terminé · **Priorité :** 🟠 Should · **Jalon :** MVP (confort) · **Sprint :** Sprint 3
 
 **User Story :**
 > En tant qu'**utilisateur**, je veux **une interface claire et lisible (texte + icônes génériques, typographie libre)**, afin d'**avoir une expérience agréable sans aucun risque de droits d'auteur**.
@@ -267,8 +265,8 @@ Deux jalons distincts pilotent les priorités de ce backlog — ne pas les confo
 > **Décision actée :** pas de portrait de Talleyrand ni d'assets/fonts issus de Civ5/Firaxis, même stylisés. Design 100% original (icônes libres type Material/Font Awesome, police libre type Google Fonts).
 
 #### Tâches techniques
-- Mockup simple (sections : objectif courant, actions catégorisées, historique court)
-- Style QSS avec palette et police originales, adapté HiDPI/Retina
+- Mockup simple (sections : objectif courant, actions prioritaires, risques)
+- Style QSS avec palette originale, police Inter si installée et fallback système documenté, adapté HiDPI/Retina
 - Animation légère d'apparition (fade-in)
 
 #### Critères d'acceptation
