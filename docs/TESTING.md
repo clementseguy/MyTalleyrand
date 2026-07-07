@@ -44,7 +44,7 @@ xmllint --noout mod/MyTalleyrand.modinfo mod/XML/GameDefines.xml mod/XML/Text.xm
 
 ```bash
 # Via script automatisé
-./script/install_macos.sh
+./scripts/install_macos.sh
 
 # Ou manuellement
 cp -R mod/. ~/Documents/Aspyr/Sid\ Meier\'s\ Civilization\ 5/MODS/MyTalleyrand/
