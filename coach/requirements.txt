@@ -7,14 +7,7 @@ PyQt6>=6.6.1
 # LLM
 openai>=1.7.0
 
-# Surveillance fichiers
-watchdog>=3.0.0
-
-# Stockage sécurisé
-keyring>=24.3.0
-
 # Utilitaires
-requests>=2.31.0
 tenacity>=8.2.3
 
 # Tests

@@ -4,26 +4,16 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 from dataclasses import asdict, dataclass
 from typing import Any
 
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
+from src.config import _DEFAULT_SYSTEM_PROMPT, _DEFAULT_USER_PROMPT_TEMPLATE
+
 logger = logging.getLogger(__name__)
 
 _ALLOWED_CATEGORIES = {"economie", "science", "militaire", "diplomatie"}
-_DEFAULT_SYSTEM_PROMPT = (
-    "Tu es Talleyrand, coach stratégique pour Civ5. "
-    "Réponds UNIQUEMENT en JSON valide avec les clés: "
-    "objective_10_turns, priority_actions, risks, confidence, categories."
-)
-_DEFAULT_USER_PROMPT_TEMPLATE = (
-    "Objectif de victoire: {victory_focus}\n"
-    "Etat de jeu (JSON): {game_state_json}\n"
-    "Donne un objectif 10 tours, 3-5 actions prioritaires, risques, confiance (0-100), "
-    "et actions catégorisées (economie/science/militaire/diplomatie)."
-)
 
 
 @dataclass(frozen=True)
@@ -62,6 +52,7 @@ class LLMClient:
         self.system_prompt = system_prompt.strip() or _DEFAULT_SYSTEM_PROMPT
         self.user_prompt_template = user_prompt_template
         self.api_key = api_key
+        self._openai_client = None
 
     def generate_advice(self, game_state: dict[str, Any], victory_focus: str) -> LLMAdvice:
         try:
@@ -81,16 +72,17 @@ class LLMClient:
         if self.provider != "openai":
             raise RuntimeError(f"provider non supporté: {self.provider}")
 
-        api_key = self.api_key or os.getenv("TALLEYRAND_OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")
-        if not api_key:
+        if not self.api_key:
             raise RuntimeError("clé API OpenAI absente")
 
-        try:
-            from openai import OpenAI
-        except Exception as exc:  # pragma: no cover - dépendance runtime
-            raise RuntimeError("package openai indisponible") from exc
+        if self._openai_client is None:
+            try:
+                from openai import OpenAI
+            except Exception as exc:  # pragma: no cover - dépendance runtime
+                raise RuntimeError("package openai indisponible") from exc
+            self._openai_client = OpenAI(api_key=self.api_key, timeout=self.timeout_seconds)
 
-        client = OpenAI(api_key=api_key, timeout=self.timeout_seconds)
+        client = self._openai_client
 
         prompt = self._build_prompt(game_state=game_state, victory_focus=victory_focus)
         response = client.responses.create(

@@ -65,7 +65,10 @@ class CoachingEngine:
 
         existing: list[dict[str, Any]] = []
         if self.history_file.exists():
-            existing = json.loads(self.history_file.read_text(encoding="utf-8"))
+            try:
+                existing = json.loads(self.history_file.read_text(encoding="utf-8"))
+            except (json.JSONDecodeError, ValueError):
+                logger.warning("Historique corrompu, réinitialisation")
 
         existing.append(entry)
         self.history_file.write_text(json.dumps(existing, indent=2, ensure_ascii=False), encoding="utf-8")

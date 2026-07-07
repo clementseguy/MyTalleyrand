@@ -32,6 +32,7 @@ Temporary Items
 # Logs et caches
 *.log
 *.cache
+.pytest_cache/
 
 # Fichiers de build ou temporaires
 *.tmp
@@ -43,6 +44,7 @@ Temporary Items
 *.Civ5Save
 
 # Environnements Python (si scripts de build)
+.venv/
 venv/
 env/
 __pycache__/

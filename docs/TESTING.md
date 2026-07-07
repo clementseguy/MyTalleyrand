@@ -11,9 +11,9 @@ cd coach && python3 -m pytest
 | `test_config.py` | Configuration multi-niveaux, surcharges env |
 | `test_llm_client.py` | Client LLM, fallback local, parsing strict |
 | `test_watcher.py` | Surveillance fichier, déduplication turn_id |
-| `test_coach_engine.py` | Déclenchement tour 1 + tous les 10 tours, historique |
+| `test_coach_engine.py` | Déclenchement tour 1 + tous les 10 tours, historique, résilience JSON corrompu |
 | `test_pipeline_integration.py` | Chaîne watcher → coach → overlay |
-| `test_overlay.py` | Position, visibilité, rendu texte |
+| `test_overlay.py` | Position, visibilité, rendu texte, résilience état corrompu |
 | `test_gamestate_schema.py` | Validation champs requis et types |
 
 ### Smoke test (premier lancement)
