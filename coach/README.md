@@ -39,6 +39,15 @@ python3 -m src.keychain get openai
 python3 -m src.keychain delete openai
 ```
 
+Gestion manuelle de la clé sans relancer l'installateur :
+
+```bash
+cd coach
+python3 -m src.keychain set openai
+python3 -m src.keychain get openai
+python3 -m src.keychain delete openai
+```
+
 ### Champs configurables
 
 - `llm.system_prompt` : prompt système complet.
