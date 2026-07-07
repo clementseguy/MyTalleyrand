@@ -9,9 +9,18 @@ import sys
 import time
 from pathlib import Path
 
+if __package__ in {None, ""}:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
 from src.coach import CoachingEngine
 from src.config import ConfigError, DEFAULT_SETTINGS_PATH, DEFAULT_USER_SETTINGS_PATH, load_config, validate_config
 from src.llm_client import LLMClient
+from src.onboarding import (
+    build_onboarding_checks,
+    format_onboarding_report,
+    mark_onboarding_done,
+    should_run_first_launch_onboarding,
+)
 from src.overlay import OverlaySettings, TalleyrandOverlay
 from src.preferences import PreferencesStore, VICTORY_FOCUSES
 from src.watcher import GameStateIssue, GameStateWatcher
@@ -31,6 +40,7 @@ def _configure_logging(log_file: Path) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Talleyrand Coach")
     parser.add_argument("--once", action="store_true", help="démarre puis s'arrête")
+    parser.add_argument("--onboarding", action="store_true", help="affiche les vérifications de premier lancement puis s'arrête")
     parser.add_argument(
         "--victory-focus",
         default=None,
@@ -65,7 +75,7 @@ def main() -> int:
             height=config.overlay_height,
             opacity=config.overlay_opacity,
         ),
-        enable_qt=not args.once,
+        enable_qt=not args.once and not args.onboarding,
     )
 
     llm_client = LLMClient(
@@ -103,6 +113,26 @@ def main() -> int:
             )
 
     overlay.set_preferences_callback(prompt_victory_focus)
+
+    def run_onboarding(force: bool = False) -> None:
+        checks = build_onboarding_checks(config)
+        report = format_onboarding_report(checks)
+        logger.info("%s", report)
+        failed = [check for check in checks if not check.ok]
+        if failed or force:
+            overlay.show_status(
+                "Vérification premier lancement",
+                "\n".join(f"{'✅' if check.ok else '⚠️'} {check.name}" for check in checks),
+                failed[0].suggestion if failed else "Tous les prérequis vérifiables sont prêts.",
+                critical=bool(failed),
+            )
+        mark_onboarding_done(config)
+
+    if args.onboarding:
+        run_onboarding(force=True)
+        return 0
+    if not args.once and should_run_first_launch_onboarding(config):
+        run_onboarding()
 
     watched_config_files = [DEFAULT_SETTINGS_PATH, DEFAULT_USER_SETTINGS_PATH]
     last_config_mtime = max((path.stat().st_mtime_ns for path in watched_config_files if path.exists()), default=0)

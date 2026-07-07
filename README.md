@@ -18,7 +18,14 @@ Mod Civilization V + coach Python (LLM) pour proposer des recommandations strat�
   - `llm.user_prompt_template` (facultatif, doit contenir `{victory_focus}` et `{game_state_json}`)
 - Préférences de stratégie : l’objectif de victoire est demandé au tour 1 via l’overlay, modifiable ensuite avec le bouton ⚙, puis sauvegardé dans `user_preferences.json` à côté des exports du mod.
 
-3. **Lancer le coach**
+3. **Lancer les vérifications de premier démarrage (facultatif)**
+
+```bash
+cd ~/Applications/MyTalleyrandCoach/coach
+.venv/bin/python src/main.py --onboarding
+```
+
+4. **Lancer le coach**
 
 ```bash
 open ~/Applications/MyTalleyrandCoach/start_coach.command
@@ -27,7 +34,7 @@ cd ~/Applications/MyTalleyrandCoach/coach
 .venv/bin/python src/main.py
 ```
 
-4. **Lancer Civilization V**
+5. **Lancer Civilization V**
 - Activer le mod **MyTalleyrand** dans le menu Mods.
 - Jouer en mode fenêtré.
 
@@ -78,6 +85,16 @@ python3 -m pytest
 - Packaging applicatif macOS (app bundle/signature).
 - Amélioration du schéma de gamestate (économie, villes, diplomatie détaillées).
 - Ajout d'options UI overlay (thèmes, filtres de catégories, raccourcis clavier).
+
+## Désinstallation
+
+```bash
+./scripts/uninstall_macos.sh
+# Optionnel : supprimer aussi la config utilisateur et les logs
+REMOVE_USER_DATA=1 REMOVE_LOGS=1 ./scripts/uninstall_macos.sh
+```
+
+Le script supprime le coach installé, le mod installé et tente de révoquer la clé OpenAI stockée dans le Keychain macOS.
 
 ## Documentation
 

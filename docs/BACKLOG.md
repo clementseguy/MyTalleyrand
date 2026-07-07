@@ -31,11 +31,11 @@ Deux jalons distincts pilotent les priorités de ce backlog — ne pas les confo
 | Métrique | Valeur |
 | --- | --- |
 | **Total User Stories** | 22 |
-| **US Terminées** | 18 |
+| **US Terminées** | 20 |
 | **US En cours (partielles)** | 2 |
-| **US À faire** | 1 |
+| **US À faire** | 0 |
 | **US Won't** | 1 |
-| **Progression** | 18/21 actives — 86% |
+| **Progression** | 20/21 actives — 95% |
 
 ### Répartition par Epic
 
@@ -45,7 +45,7 @@ Deux jalons distincts pilotent les priorités de ce backlog — ne pas les confo
 | EPIC 2 : Interface utilisateur | 3 | MVP | ✅ 3/3 terminées |
 | EPIC 3 : Logique du coach | 5 | MVP | ✅ 5/5 terminées |
 | EPIC 4 : Maîtrise du budget & optimisation | 6 | MVP (budget) / Could | ✅ 3/6 terminées, 🔄 2 partielles, ⚪ 1 Won't |
-| EPIC 5 : Documentation, tests & partage | 4 | Partage public | ✅ 2/4 terminées, 📝 2/4 à faire |
+| EPIC 5 : Documentation, tests & partage | 4 | Partage public | ✅ 4/4 terminées |
 
 ### Légende des statuts
 
@@ -521,7 +521,7 @@ Deux jalons distincts pilotent les priorités de ce backlog — ne pas les confo
 ## EPIC 5 : Documentation, tests & partage public
 
 **Objectif :** Rendre le repo utilisable par un tiers technique, sans mon assistance.
-**Statut global :** ✅ 2/4 terminées, 📝 2/4 à faire
+**Statut global :** ✅ 4/4 terminées
 **Jalon :** Partage public (non requis pour le jalon MVP jouable)
 
 ---
@@ -570,7 +570,9 @@ Deux jalons distincts pilotent les priorités de ce backlog — ne pas les confo
 
 ### US-021 : Onboarding premier lancement *(proposition ajoutée)*
 
-**Statut :** 📝 À faire · **Priorité :** 🟢 Could · **Jalon :** Partage public (confort) · **Sprint :** Sprint 4+
+**Statut :** ✅ Terminé · **Priorité :** 🟢 Could · **Jalon :** Partage public (confort) · **Sprint :** Sprint 4+
+
+**Implémentation :** `coach/src/onboarding.py` + `src/main.py --onboarding` — diagnostic chemins Civ5/export, clé API et permission Accessibilité macOS, affiché automatiquement au premier démarrage puis marqué par `.onboarding_done`.
 
 **User Story :**
 > En tant qu'**utilisateur**, je veux **un mode "premier lancement" qui vérifie les permissions macOS requises et me guide pas à pas**, afin de **réussir l'installation sans lire toute la doc en détail**.
@@ -584,7 +586,9 @@ Deux jalons distincts pilotent les priorités de ce backlog — ne pas les confo
 
 ### US-022 : Désinstallation propre *(proposition ajoutée)*
 
-**Statut :** 📝 À faire · **Priorité :** 🟢 Could · **Jalon :** Partage public (confort) · **Sprint :** Sprint 4+
+**Statut :** ✅ Terminé · **Priorité :** 🟢 Could · **Jalon :** Partage public (confort) · **Sprint :** Sprint 4+
+
+**Implémentation :** `scripts/uninstall_macos.sh` — suppression du coach installé, du mod installé, révocation Keychain `MyTalleyrand/openai`, options `REMOVE_USER_DATA=1` et `REMOVE_LOGS=1`.
 
 **User Story :**
 > En tant qu'**utilisateur**, je veux **pouvoir désinstaller proprement l'app et révoquer ma clé API du Keychain**, afin de **ne pas laisser de résidus sensibles**.
@@ -629,7 +633,7 @@ Deux jalons distincts pilotent les priorités de ce backlog — ne pas les confo
 ### Sprint 4+ : Améliorations optionnelles
 | US |
 | --- |
-| US-010, US-011b, US-021, US-022, (US-012 Won't) |
+| US-010, US-011b, (US-012 Won't) |
 
 *Estimation en points volontairement omise sur les US ajoutées — à chiffrer par l'agent de développement lors du planning de sprint.*
 
@@ -659,6 +663,11 @@ Deux jalons distincts pilotent les priorités de ce backlog — ne pas les confo
 ---
 
 ## Notes de mise à jour
+
+**7 juillet 2026 (EPIC 5 terminée)**
+- Ajout du diagnostic de premier lancement (`--onboarding`) avec vérifications macOS guidées
+- Ajout d’une désinstallation propre avec révocation Keychain et options de suppression des données utilisateur/logs
+- Statuts ajustés : EPIC 5 complète pour le jalon Partage public
 
 **7 juillet 2026 (US-015 terminée)**
 - Notification utilisateur dans l’overlay pour `gamestate.json` absent, vide, corrompu ou invalide
