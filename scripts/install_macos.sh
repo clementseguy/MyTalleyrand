@@ -192,6 +192,8 @@ printf "✅ Mod installé dans: %s\n" "$MOD_TARGET_DIR"
 mkdir -p "$INSTALL_BASE"
 rm -rf "$INSTALL_BASE/coach"
 cp -R "$ROOT_DIR/coach" "$INSTALL_BASE/coach"
+# Supprime le .venv copié accidentellement du workspace (qui ne doit pas être distribué)
+rm -rf "$INSTALL_BASE/coach/.venv"
 printf "✅ Coach installé dans: %s\n" "$INSTALL_BASE/coach"
 
 VENV_DIR="$INSTALL_BASE/coach/.venv"
