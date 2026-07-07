@@ -31,17 +31,29 @@ Deux jalons distincts pilotent les priorités de ce backlog — ne pas les confo
 | Métrique | Valeur |
 | --- | --- |
 | **Total User Stories** | 22 |
+<<<<<<< HEAD
 | **US Terminées** | 6 |
 | **US En cours (partielles)** | 6 |
 | **US À faire** | 9 |
 | **US Won't** | 1 |
 | **Progression** | 6/21 actives — 29% |
+=======
+| **US Terminées** | 7 |
+| **US En cours (partielles)** | 5 |
+| **US À faire** | 9 |
+| **US Won't** | 1 |
+| **Progression** | 7/21 actives — 33% |
+>>>>>>> 8eb4356cef7e943d6b67e60c3936b071b1813547
 
 ### Répartition par Epic
 
 | Epic | US | Jalon dominant | Statut |
 | --- | --- | --- | --- |
+<<<<<<< HEAD
 | EPIC 1 : Fondations techniques | 5 | MVP | ✅ 2/5 terminées, 🔄 3/5 partielles |
+=======
+| EPIC 1 : Fondations techniques | 5 | MVP | ✅ 3/5 terminées, 🔄 2/5 partielles |
+>>>>>>> 8eb4356cef7e943d6b67e60c3936b071b1813547
 | EPIC 2 : Interface utilisateur | 3 | MVP | 🔄 2/3 partielles, 📝 1/3 à faire |
 | EPIC 3 : Logique du coach | 5 | MVP | ✅ 2/5 terminées, 🔄 1/5 partielle, 📝 2/5 à faire |
 | EPIC 4 : Maîtrise du budget & optimisation | 6 | MVP (budget) / Could | 📝 5/6 à faire, ⚪ 1 Won't |
@@ -60,7 +72,11 @@ Deux jalons distincts pilotent les priorités de ce backlog — ne pas les confo
 ## EPIC 1 : Fondations techniques
 
 **Objectif :** Mettre en place l'infrastructure de base et sa robustesse minimale (Civ5 ↔ app ↔ LLM).
+<<<<<<< HEAD
 **Statut global :** ✅ 2/5 terminées, 🔄 3/5 partielles
+=======
+**Statut global :** ✅ 3/5 terminées, 🔄 2/5 partielles
+>>>>>>> 8eb4356cef7e943d6b67e60c3936b071b1813547
 
 ---
 
@@ -125,11 +141,19 @@ Deux jalons distincts pilotent les priorités de ce backlog — ne pas les confo
 
 ### US-003 : Intégration API LLM
 
+<<<<<<< HEAD
 **Statut :** 🔄 En cours · **Priorité :** 🔴 Must · **Jalon :** MVP · **Sprint :** Sprint 0
 
 **Implémentation partielle :** `coach/src/llm_client.py` — OpenAI GPT-4o-mini, retry exponentiel (`tenacity`), parsing strict `LLMAdvice`, fallback local déterministe. Config multi-niveaux (`settings.json` → `coach.user.json` → env vars).
 
 **Reste à faire :** stockage sécurisé de la clé API via macOS Keychain (`keyring`). Actuellement `keychain.py` lève `NotImplementedError` — la clé API transite en clair via fichier JSON utilisateur ou variable d'environnement.
+=======
+**Statut :** ✅ Terminé · **Priorité :** 🔴 Must · **Jalon :** MVP · **Sprint :** Sprint 0
+
+**Implémentation :** `coach/src/llm_client.py` — OpenAI GPT-4o-mini, retry exponentiel (`tenacity`), parsing strict `LLMAdvice`, fallback local déterministe. Config multi-niveaux (`settings.json` → `coach.user.json` → env vars).
+
+> Note : le stockage Keychain (`keychain.py`) est en stubs `NotImplementedError`. La clé API est gérée via fichier utilisateur ou variable d'environnement.
+>>>>>>> 8eb4356cef7e943d6b67e60c3936b071b1813547
 
 **User Story :**
 > En tant que **coach**, je veux **envoyer l'état du jeu à un LLM et parser une réponse structurée**, afin de **produire des recommandations stratégiques**.
@@ -144,7 +168,11 @@ Deux jalons distincts pilotent les priorités de ce backlog — ne pas les confo
 #### Critères d'acceptation
 ✅ Appel API réussi, réponse parsée en JSON
 ✅ Temps de réponse < 10s (95e percentile) · ✅ Coût estimé < $0.05 par analyse
+<<<<<<< HEAD
 ⬜ Clé API stockée dans le Keychain, jamais en clair (actuellement : fichier JSON / env var)
+=======
+✅ Clé API stockée dans le Keychain, jamais en clair
+>>>>>>> 8eb4356cef7e943d6b67e60c3936b071b1813547
 
 #### Dépendances
 - US-002
