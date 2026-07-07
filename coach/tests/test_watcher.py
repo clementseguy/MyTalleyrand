@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import time
 from pathlib import Path
 
@@ -51,6 +52,21 @@ def test_watcher_ignores_invalid_json(tmp_path: Path):
         watcher.stop()
 
     assert triggered is False
+
+
+def test_watcher_logs_when_gamestate_file_is_detected(tmp_path: Path, caplog):
+    gamestate_file = tmp_path / "gamestate.json"
+
+    watcher = GameStateWatcher(gamestate_file=gamestate_file, callback=lambda _payload, _source: None, poll_interval_seconds=0.05)
+    watcher.start()
+    try:
+        with caplog.at_level(logging.INFO):
+            write_gamestate(gamestate_file, turn_id=1, turn_number=1)
+            time.sleep(0.2)
+    finally:
+        watcher.stop()
+
+    assert any("Fichier gamestate détecté" in record.message for record in caplog.records)
 
 
 def test_watcher_reports_missing_file_issue_once(tmp_path: Path):

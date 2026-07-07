@@ -41,6 +41,7 @@ class GameStateWatcher:
         self._seen_turn_ids: set[int] = set()
         self._last_mtime_ns: int | None = None
         self._last_issue_signature: tuple[str, str] | None = None
+        self._last_seen_exists = False
         self._running = False
         self._thread: threading.Thread | None = None
 
@@ -77,6 +78,7 @@ class GameStateWatcher:
 
     def _check_for_update(self) -> None:
         if not self.gamestate_file.exists():
+            self._last_seen_exists = False
             self._notify_issue(
                 GameStateIssue(
                     kind="missing",
@@ -91,6 +93,11 @@ class GameStateWatcher:
             return
 
         self._last_mtime_ns = stat.st_mtime_ns
+        if not self._last_seen_exists:
+            logger.info("📄 Fichier gamestate détecté: %s (taille=%d octets)", self.gamestate_file, stat.st_size)
+        else:
+            logger.info("🔄 Fichier gamestate mis à jour: %s (taille=%d octets)", self.gamestate_file, stat.st_size)
+        self._last_seen_exists = True
 
         try:
             raw_content = self.gamestate_file.read_text(encoding="utf-8")

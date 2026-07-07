@@ -3,8 +3,10 @@
 print("MyTalleyrand Mod chargé")
 
 local SCHEMA_VERSION = "0.1.0"
-local EXPORT_PATH = "../MODS/MyTalleyrand/export/gamestate.json"
-local TEMP_EXPORT_PATH = "../MODS/MyTalleyrand/export/gamestate.tmp.json"
+local EXPORT_DIR = "../MODS/MyTalleyrand/export"
+local EXPORT_PATH = EXPORT_DIR .. "/gamestate.json"
+local TEMP_EXPORT_PATH = EXPORT_DIR .. "/gamestate.tmp.json"
+local ACTIVITY_LOG_PATH = EXPORT_DIR .. "/gamestate_activity.log"
 
 local function SafeCall(fn, default)
     local ok, result = pcall(fn)
@@ -120,6 +122,18 @@ local function BuildGameState(activePlayerId)
     return json, turnId
 end
 
+local function AppendActivityLog(message)
+    local logFile = io.open(ACTIVITY_LOG_PATH, "a")
+    if not logFile then
+        print("[MyTalleyrand] Journal d’activité indisponible: " .. tostring(ACTIVITY_LOG_PATH))
+        return
+    end
+    local timestamp = os.date("!%Y-%m-%dT%H:%M:%SZ")
+    logFile:write("[" .. timestamp .. "] " .. message .. "\n")
+    logFile:flush()
+    logFile:close()
+end
+
 local function AtomicWrite(content)
     local tempFile = io.open(TEMP_EXPORT_PATH, "w")
     if not tempFile then return false, "impossible de créer le fichier temporaire" end
@@ -139,9 +153,11 @@ function CollectGameState(activePlayerId)
     end
     local ok, err = AtomicWrite(gameStateJson)
     if not ok then
+        AppendActivityLog("export échoué turn_id=" .. tostring(turnId) .. ": " .. tostring(err))
         print("[MyTalleyrand] Export échoué: " .. tostring(err))
         return
     end
+    AppendActivityLog("export créé/mis à jour turn_id=" .. tostring(turnId))
     print("[MyTalleyrand] Export gamestate.json réussi pour turn_id=" .. tostring(turnId))
 end
 
