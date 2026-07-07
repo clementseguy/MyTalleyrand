@@ -167,3 +167,16 @@ def test_user_example_matches_prompt_constants():
 
     assert payload["llm"]["system_prompt"] == DEFAULT_SYSTEM_PROMPT
     assert payload["llm"]["user_prompt_template"] == DEFAULT_USER_PROMPT_TEMPLATE
+
+
+def test_load_config_reads_budget_controls(tmp_path: Path):
+    settings_path = _settings_template(tmp_path)
+    payload = json.loads(settings_path.read_text(encoding="utf-8"))
+    payload["coach"] = {"analysis_interval_turns": 20, "detail_level": "brief", "cost_limit_usd": 1.25}
+    settings_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    config = load_config(settings_path)
+
+    assert config.analysis_interval_turns == 20
+    assert config.llm_detail_level == "brief"
+    assert config.cost_limit_usd == 1.25

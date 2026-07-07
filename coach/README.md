@@ -39,22 +39,16 @@ python3 -m src.keychain get openai
 python3 -m src.keychain delete openai
 ```
 
-Gestion manuelle de la clé sans relancer l'installateur :
-
-```bash
-cd coach
-python3 -m src.keychain set openai
-python3 -m src.keychain get openai
-python3 -m src.keychain delete openai
-```
-
 ### Champs configurables
 
+- `coach.analysis_interval_turns` : fréquence des analyses LLM (10 par défaut ; 20 réduit environ de moitié les appels face à 10).
+- `coach.detail_level` : `brief`, `standard` ou `detailed`; `brief` limite la verbosité demandée au LLM.
+- `coach.cost_limit_usd` : plafond indicatif affiché dans l’overlay (2.0 par défaut).
 - `llm.system_prompt` : prompt système complet.
 - `llm.user_prompt_template` : template prompt utilisateur (doit contenir `{victory_focus}` et `{game_state_json}`).
 
 > Priorité des variables d'environnement :
-> `TALLEYRAND_OPENAI_API_KEY`, `TALLEYRAND_LLM_SYSTEM_PROMPT`, `TALLEYRAND_LLM_USER_PROMPT_TEMPLATE`.
+> `TALLEYRAND_OPENAI_API_KEY`, `TALLEYRAND_LLM_SYSTEM_PROMPT`, `TALLEYRAND_LLM_USER_PROMPT_TEMPLATE`, `TALLEYRAND_ANALYSIS_INTERVAL_TURNS`, `TALLEYRAND_LLM_DETAIL_LEVEL`, `TALLEYRAND_COST_LIMIT_USD`.
 
 ## Overlay
 
@@ -67,7 +61,7 @@ cd coach
 python3 src/main.py
 ```
 
-Le bouton ⚙ de l’overlay permet de changer de stratégie de victoire en cours de partie ; le choix est sauvegardé dans `user_preferences.json` dans le dossier export du mod et repris dès l’analyse suivante. Au tour 1, l’overlay demande ce choix une seule fois en mode PyQt6.
+Les réglages budget (`analysis_interval_turns`, `detail_level`, `cost_limit_usd`) sont relus entre deux tours si `settings.json` ou `coach.user.json` change : une partie en cours peut donc passer de 10 à 20 tours d’intervalle sans redémarrer. Le bouton ⚙ de l’overlay permet de changer de stratégie de victoire en cours de partie ; le choix est sauvegardé dans `user_preferences.json` dans le dossier export du mod et repris dès l’analyse suivante. Au tour 1, l’overlay demande ce choix une seule fois en mode PyQt6.
 
 Mode one-shot (smoke test) :
 
