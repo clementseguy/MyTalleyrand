@@ -43,3 +43,40 @@ def test_coaching_engine_survives_corrupt_history(tmp_path: Path):
     assert advice is not None
     history = json.loads(history_file.read_text(encoding="utf-8"))
     assert len(history) == 1
+
+
+def test_coaching_engine_persists_detected_game_parameters(tmp_path: Path):
+    from src.preferences import PreferencesStore
+
+    history_file = tmp_path / "history.json"
+    preferences_store = PreferencesStore(tmp_path / "user_preferences.json")
+    engine = CoachingEngine(
+        LLMClient("mock", "mock"),
+        history_file=history_file,
+        preferences_store=preferences_store,
+    )
+    game_state = make_gamestate(turn_id=10, turn_number=10)
+    game_state["game"] = {"difficulty": "Roi", "map_size": "Petite", "game_speed": "Standard"}
+
+    engine.maybe_generate_advice(game_state)
+
+    history = json.loads(history_file.read_text(encoding="utf-8"))
+    assert history[0]["game_parameters"] == {
+        "difficulty": "Roi",
+        "map_size": "Petite",
+        "game_speed": "Standard",
+    }
+
+
+def test_coaching_engine_returns_cautious_advice_for_insufficient_context(tmp_path: Path):
+    history_file = tmp_path / "history.json"
+    engine = CoachingEngine(LLMClient("mock", "mock"), history_file=history_file)
+    game_state = make_gamestate(turn_id=1, turn_number=1)
+    game_state["cities"] = []
+
+    advice = engine.maybe_generate_advice(game_state)
+
+    assert advice is not None
+    assert advice.source == "context_insufficient"
+    assert advice.confidence < 50
+    assert "contexte" in advice.risks[0].lower()
