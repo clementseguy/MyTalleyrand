@@ -30,6 +30,15 @@ La clé OpenAI est lue en priorité depuis `TALLEYRAND_OPENAI_API_KEY`, puis dep
 
 Un exemple est fourni dans `coach/config/coach.user.example.json`.
 
+Gestion manuelle de la clé sans relancer l'installateur :
+
+```bash
+cd coach
+python3 -m src.keychain set openai
+python3 -m src.keychain get openai
+python3 -m src.keychain delete openai
+```
+
 ### Champs configurables
 
 - `llm.system_prompt` : prompt système complet.

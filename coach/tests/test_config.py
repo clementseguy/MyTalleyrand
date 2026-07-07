@@ -118,3 +118,40 @@ def test_validate_config_rejects_invalid_prompt_template(tmp_path: Path):
     errors = validate_config(bad_config)
 
     assert "LLM user prompt template must include {game_state_json}" in errors
+
+
+def test_load_config_reports_missing_settings_file(tmp_path: Path):
+    missing = tmp_path / "missing-settings.json"
+
+    try:
+        load_config(missing)
+    except Exception as exc:
+        assert "introuvable" in str(exc)
+        assert str(missing) in str(exc)
+    else:
+        raise AssertionError("load_config aurait dû refuser un settings.json absent")
+
+
+def test_load_config_reports_corrupt_settings_file(tmp_path: Path):
+    settings_path = tmp_path / "settings.json"
+    settings_path.write_text("{bad json", encoding="utf-8")
+
+    try:
+        load_config(settings_path)
+    except Exception as exc:
+        assert "JSON invalide" in str(exc)
+        assert str(settings_path) in str(exc)
+    else:
+        raise AssertionError("load_config aurait dû refuser un settings.json corrompu")
+
+
+def test_load_config_reports_missing_required_section(tmp_path: Path):
+    settings_path = tmp_path / "settings.json"
+    settings_path.write_text(json.dumps({"schema_version": "0.1.0"}), encoding="utf-8")
+
+    try:
+        load_config(settings_path)
+    except Exception as exc:
+        assert "section 'paths'" in str(exc)
+    else:
+        raise AssertionError("load_config aurait dû refuser une section obligatoire absente")

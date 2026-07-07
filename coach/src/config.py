@@ -14,7 +14,7 @@ from src.keychain import get_api_key
 DEFAULT_SETTINGS_PATH = Path(__file__).resolve().parents[1] / "config" / "settings.json"
 DEFAULT_USER_SETTINGS_PATH = Path.home() / "Library" / "Application Support" / "MyTalleyrand" / "coach.user.json"
 
-_DEFAULT_SYSTEM_PROMPT = (
+DEFAULT_SYSTEM_PROMPT = (
     "Tu es Talleyrand, coach stratégique pour Civilization V. "
     "Réponds de manière actionnable et concise en français. "
     "Tu dois impérativement retourner un JSON valide avec les clés: "
@@ -24,7 +24,11 @@ _DEFAULT_SYSTEM_PROMPT = (
 logger = logging.getLogger(__name__)
 
 
-_DEFAULT_USER_PROMPT_TEMPLATE = (
+class ConfigError(ValueError):
+    """Configuration application absente, corrompue ou incomplète."""
+
+
+DEFAULT_USER_PROMPT_TEMPLATE = (
     "Objectif de victoire: {victory_focus}\n"
     "Etat de jeu (JSON): {game_state_json}\n"
     "Donne un objectif 10 tours, 3-5 actions prioritaires, risques, confiance (0-100), "
@@ -65,11 +69,32 @@ def _env_or_default(env_name: str, default: Any, caster):
     return caster(raw)
 
 
-def _load_json_if_exists(path: Path) -> dict[str, Any]:
+def _load_json_if_exists(path: Path, *, required: bool = False) -> dict[str, Any]:
     if not path.exists():
+        if required:
+            raise ConfigError(f"Fichier de configuration introuvable: {path}")
         return {}
-    with path.open("r", encoding="utf-8") as file:
-        return json.load(file)
+    try:
+        with path.open("r", encoding="utf-8") as file:
+            payload = json.load(file)
+    except json.JSONDecodeError as exc:
+        raise ConfigError(f"Fichier de configuration JSON invalide: {path} ({exc})") from exc
+    if not isinstance(payload, dict):
+        raise ConfigError(f"Fichier de configuration invalide: {path} doit contenir un objet JSON")
+    return payload
+
+
+def _require_mapping(payload: dict[str, Any], key: str, source: Path) -> dict[str, Any]:
+    value = payload.get(key)
+    if not isinstance(value, dict):
+        raise ConfigError(f"Configuration invalide: section '{key}' manquante ou invalide dans {source}")
+    return value
+
+
+def _require_key(payload: dict[str, Any], key: str, section: str, source: Path) -> Any:
+    if key not in payload:
+        raise ConfigError(f"Configuration invalide: clé '{section}.{key}' manquante dans {source}")
+    return payload[key]
 
 
 def _resolve_api_key(llm_provider: str, llm_user: dict[str, Any]) -> str | None:
@@ -94,49 +119,107 @@ def _resolve_api_key(llm_provider: str, llm_user: dict[str, Any]) -> str | None:
 def load_config(settings_path: Path | None = None, user_settings_path: Path | None = None) -> AppConfig:
     """Charge la configuration depuis le JSON et applique les surcharges d'environnement."""
     resolved_settings_path = settings_path or DEFAULT_SETTINGS_PATH
-    settings = _load_json_if_exists(resolved_settings_path)
+    settings = _load_json_if_exists(resolved_settings_path, required=True)
 
     configured_user_path = user_settings_path or Path(
         os.getenv("TALLEYRAND_USER_CONFIG", DEFAULT_USER_SETTINGS_PATH)
     ).expanduser()
     user_settings = _load_json_if_exists(configured_user_path)
 
-    paths = settings["paths"]
-    llm = settings["llm"]
+    paths = _require_mapping(settings, "paths", resolved_settings_path)
+    llm = _require_mapping(settings, "llm", resolved_settings_path)
     llm_user = user_settings.get("llm", {})
-    overlay = settings["overlay"]
+    if not isinstance(llm_user, dict):
+        raise ConfigError(f"Configuration utilisateur invalide: section 'llm' invalide dans {configured_user_path}")
+    overlay = _require_mapping(settings, "overlay", resolved_settings_path)
 
     system_prompt = _env_or_default(
         "TALLEYRAND_LLM_SYSTEM_PROMPT",
-        llm_user.get("system_prompt", _DEFAULT_SYSTEM_PROMPT),
+        llm_user.get("system_prompt", DEFAULT_SYSTEM_PROMPT),
         str,
     )
     user_prompt_template = _env_or_default(
         "TALLEYRAND_LLM_USER_PROMPT_TEMPLATE",
-        llm_user.get("user_prompt_template", _DEFAULT_USER_PROMPT_TEMPLATE),
+        llm_user.get("user_prompt_template", DEFAULT_USER_PROMPT_TEMPLATE),
         str,
     )
 
-    llm_provider = _env_or_default("TALLEYRAND_LLM_PROVIDER", llm["provider"], str)
+    llm_provider = _env_or_default(
+        "TALLEYRAND_LLM_PROVIDER",
+        _require_key(llm, "provider", "llm", resolved_settings_path),
+        str,
+    )
     llm_api_key = _resolve_api_key(llm_provider=llm_provider, llm_user=llm_user)
 
     config = AppConfig(
-        schema_version=settings["schema_version"],
-        civ5_dir=_expand(_env_or_default("TALLEYRAND_CIV5_DIR", paths["civ5_user_dir"], str)),
-        export_dir=_expand(_env_or_default("TALLEYRAND_EXPORT_DIR", paths["mod_export_dir"], str)),
-        gamestate_file=_expand(_env_or_default("TALLEYRAND_GAMESTATE_FILE", paths["gamestate_file"], str)),
-        log_file=_expand(_env_or_default("TALLEYRAND_LOG_FILE", paths["log_file"], str)),
+        schema_version=_require_key(settings, "schema_version", "root", resolved_settings_path),
+        civ5_dir=_expand(
+            _env_or_default(
+                "TALLEYRAND_CIV5_DIR",
+                _require_key(paths, "civ5_user_dir", "paths", resolved_settings_path),
+                str,
+            )
+        ),
+        export_dir=_expand(
+            _env_or_default(
+                "TALLEYRAND_EXPORT_DIR",
+                _require_key(paths, "mod_export_dir", "paths", resolved_settings_path),
+                str,
+            )
+        ),
+        gamestate_file=_expand(
+            _env_or_default(
+                "TALLEYRAND_GAMESTATE_FILE",
+                _require_key(paths, "gamestate_file", "paths", resolved_settings_path),
+                str,
+            )
+        ),
+        log_file=_expand(
+            _env_or_default(
+                "TALLEYRAND_LOG_FILE",
+                _require_key(paths, "log_file", "paths", resolved_settings_path),
+                str,
+            )
+        ),
         llm_provider=llm_provider,
-        llm_model=_env_or_default("TALLEYRAND_LLM_MODEL", llm["model"], str),
-        llm_max_tokens=_env_or_default("TALLEYRAND_LLM_MAX_TOKENS", llm["max_tokens"], int),
-        llm_temperature=_env_or_default("TALLEYRAND_LLM_TEMPERATURE", llm["temperature"], float),
-        llm_timeout_seconds=_env_or_default("TALLEYRAND_LLM_TIMEOUT_SECONDS", llm["timeout_seconds"], int),
+        llm_model=_env_or_default(
+            "TALLEYRAND_LLM_MODEL",
+            _require_key(llm, "model", "llm", resolved_settings_path),
+            str,
+        ),
+        llm_max_tokens=_env_or_default(
+            "TALLEYRAND_LLM_MAX_TOKENS",
+            _require_key(llm, "max_tokens", "llm", resolved_settings_path),
+            int,
+        ),
+        llm_temperature=_env_or_default(
+            "TALLEYRAND_LLM_TEMPERATURE",
+            _require_key(llm, "temperature", "llm", resolved_settings_path),
+            float,
+        ),
+        llm_timeout_seconds=_env_or_default(
+            "TALLEYRAND_LLM_TIMEOUT_SECONDS",
+            _require_key(llm, "timeout_seconds", "llm", resolved_settings_path),
+            int,
+        ),
         llm_system_prompt=system_prompt,
         llm_user_prompt_template=user_prompt_template,
         llm_api_key=llm_api_key,
-        overlay_width=_env_or_default("TALLEYRAND_OVERLAY_WIDTH", overlay["width"], int),
-        overlay_height=_env_or_default("TALLEYRAND_OVERLAY_HEIGHT", overlay["height"], int),
-        overlay_opacity=_env_or_default("TALLEYRAND_OVERLAY_OPACITY", overlay["opacity"], float),
+        overlay_width=_env_or_default(
+            "TALLEYRAND_OVERLAY_WIDTH",
+            _require_key(overlay, "width", "overlay", resolved_settings_path),
+            int,
+        ),
+        overlay_height=_env_or_default(
+            "TALLEYRAND_OVERLAY_HEIGHT",
+            _require_key(overlay, "height", "overlay", resolved_settings_path),
+            int,
+        ),
+        overlay_opacity=_env_or_default(
+            "TALLEYRAND_OVERLAY_OPACITY",
+            _require_key(overlay, "opacity", "overlay", resolved_settings_path),
+            float,
+        ),
     )
     return config
 

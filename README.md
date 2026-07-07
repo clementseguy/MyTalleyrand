@@ -20,6 +20,8 @@ Mod Civilization V + coach Python (LLM) pour proposer des recommandations strat�
 3. **Lancer le coach**
 
 ```bash
+open ~/Applications/MyTalleyrandCoach/start_coach.command
+# ou :
 cd ~/Applications/MyTalleyrandCoach/coach
 .venv/bin/python src/main.py
 ```
@@ -46,7 +48,7 @@ MyTalleyrand/
 
 - **mod/** : exporte `gamestate.json` à chaque tour joueur actif.
 - **coach/** : surveille ce fichier (`poll_interval=0.5s`), valide le schéma, puis génère un conseil (LLM ou fallback local).
-- **overlay** : affiche l'objectif à 10 tours, actions prioritaires, risques et catégories.
+- **overlay** : fenêtre PyQt6 transparente et persistante qui affiche l'objectif à 10 tours, les actions prioritaires, les risques et les statuts utilisateur.
 
 ## Développement (simplifié)
 
@@ -65,7 +67,7 @@ python3 -m pytest
 
 ## Statut du projet (simplifié)
 
-- ✅ Chaîne mod → watcher → coach → overlay opérationnelle.
+- ✅ Chaîne mod → watcher → coach → overlay PyQt6 opérationnelle en mode fenêtré.
 - ✅ Fallback local robuste si LLM indisponible.
 - ✅ Configuration utilisateur LLM (clé + prompts) via fichier dédié.
 - ⚠️ Support principal : macOS (Aspyr/Steam).

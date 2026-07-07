@@ -75,3 +75,65 @@ def test_overlay_keeps_fallback_explanation_with_local_advice(tmp_path: Path):
     assert "Fallback LLM activé" in overlay.last_rendered_text
     assert "prochain tour analysé" in overlay.last_rendered_text
     assert "Action A" in overlay.last_rendered_text
+
+
+def test_overlay_persists_minimized_state_until_next_advice(tmp_path: Path):
+    state_file = tmp_path / "overlay_state.json"
+    overlay = TalleyrandOverlay(state_file=state_file)
+
+    overlay.minimize()
+    restored = TalleyrandOverlay(state_file=state_file)
+
+    assert restored.visible is True
+    assert restored.minimized is True
+
+    restored.show_advice(
+        LLMAdvice(
+            objective_10_turns="Relancer l'économie.",
+            priority_actions=["Action A", "Action B", "Action C"],
+            risks=[],
+            confidence=75,
+            categories={},
+        )
+    )
+
+    assert restored.minimized is False
+
+
+def test_overlay_hide_does_not_clear_rendered_advice(tmp_path: Path):
+    overlay = TalleyrandOverlay(state_file=tmp_path / "state.json")
+    advice = LLMAdvice(
+        objective_10_turns="Construire une bibliothèque.",
+        priority_actions=["Action A", "Action B", "Action C"],
+        risks=["Risque A"],
+        confidence=80,
+        categories={"science": ["Action A"]},
+    )
+
+    overlay.show_advice(advice)
+    overlay.hide()
+
+    assert overlay.visible is False
+    assert "Construire une bibliothèque" in overlay.last_rendered_text
+    assert "Risque A" in overlay.last_rendered_text
+
+
+def test_overlay_critical_status_restores_hidden_overlay(tmp_path: Path):
+    overlay = TalleyrandOverlay(state_file=tmp_path / "state.json")
+    overlay.hide()
+    overlay.minimize()
+
+    overlay.show_status("Erreur critique", "LLM indisponible.", "Vérifiez la clé API.")
+
+    assert overlay.visible is True
+    assert overlay.minimized is False
+    assert "Erreur critique" in overlay.last_rendered_text
+
+
+def test_overlay_non_critical_status_respects_hidden_overlay(tmp_path: Path):
+    overlay = TalleyrandOverlay(state_file=tmp_path / "state.json")
+    overlay.hide()
+
+    overlay.show_status("Info", "Synchronisation.", "Patientez.", critical=False)
+
+    assert overlay.visible is False

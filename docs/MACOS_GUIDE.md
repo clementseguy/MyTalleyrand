@@ -58,18 +58,15 @@ Le dossier `~/Documents/` est autorisé par défaut. Pas besoin de « Full Disk 
 
 ## Overlay
 
-**Prérequis :** Civilization V doit tourner en **mode fenêtré** (Settings → Video → Windowed ou Windowed Fullscreen).
+**Prérequis :** Civilization V doit tourner en **mode fenêtré** (Settings → Video → Windowed ou Windowed Fullscreen). Les pleins écrans exclusifs macOS peuvent empêcher une fenêtre tierce de rester visible au-dessus du jeu.
 
-L'overlay actuel est une abstraction testable sans UI graphique. L'implémentation PyQt6 future utilisera :
+Le coach utilise PyQt6 pour afficher une fenêtre transparente, sans bordure, toujours au-dessus. Au démarrage, il vérifie la permission macOS **Accessibilité** (`AXIsProcessTrusted`) et journalise les écrans détectés pour faciliter le diagnostic multi-écrans.
 
-```python
-self.setWindowFlags(
-    Qt.WindowType.WindowStaysOnTopHint |   # Toujours au-dessus
-    Qt.WindowType.FramelessWindowHint |    # Sans bordure
-    Qt.WindowType.Tool                     # Pas dans le Dock
-)
-self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-```
+- Accordez la permission **Réglages Système → Confidentialité et sécurité → Accessibilité** au terminal ou au lanceur utilisé pour démarrer le coach si macOS le demande.
+- Les boutons `–` et `×` réduisent ou masquent seulement l'overlay : l'application continue de surveiller les nouveaux tours.
+- La position, l'état visible/masqué et l'état réduit sont persistés dans `overlay_state.json` dans le dossier d'export du mod.
+- Un nouveau conseil restaure automatiquement l'overlay réduit afin de ne pas manquer une analyse importante.
+- L'interface utilise uniquement du texte, des couleurs et une typographie système/libre : aucun asset Civilization V/Firaxis n'est embarqué.
 
 ## Watcher
 
