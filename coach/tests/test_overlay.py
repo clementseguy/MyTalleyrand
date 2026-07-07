@@ -1,9 +1,32 @@
 from __future__ import annotations
 
+import threading
 from pathlib import Path
 
 from src.llm_client import LLMAdvice
 from src.overlay import TalleyrandOverlay
+
+
+class DispatchingBackend:
+    def __init__(self) -> None:
+        self.dispatch_calls = 0
+        self.render_calls = 0
+
+    def move_to(self, position) -> None:
+        self.render_calls += 1
+
+    def render(self, text: str, visible: bool, minimized: bool) -> None:
+        self.render_calls += 1
+
+    def close(self) -> None:
+        self.render_calls += 1
+
+    def prompt_victory_focus(self, current_focus: str, choices: tuple[str, ...]) -> str | None:
+        return current_focus
+
+    def dispatch(self, callback) -> None:
+        self.dispatch_calls += 1
+        callback()
 
 
 def test_overlay_persists_position_and_visibility(tmp_path: Path):
@@ -164,3 +187,19 @@ def test_overlay_text_backend_keeps_current_victory_focus(tmp_path: Path):
     overlay = TalleyrandOverlay(state_file=tmp_path / "state.json")
 
     assert overlay.request_victory_focus("science") == "science"
+
+
+def test_overlay_uses_backend_dispatch_for_threaded_updates(tmp_path: Path):
+    state_file = tmp_path / "overlay_state.json"
+    backend = DispatchingBackend()
+    overlay = TalleyrandOverlay(state_file=state_file, backend=backend)
+
+    def trigger_status() -> None:
+        overlay.show_status("Info", "Bonjour", "Patientez.", critical=False)
+
+    worker = threading.Thread(target=trigger_status)
+    worker.start()
+    worker.join()
+
+    assert backend.dispatch_calls == 1
+    assert backend.render_calls == 1

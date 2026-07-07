@@ -46,6 +46,9 @@ class TextOverlayBackend:
     def move_to(self, position: OverlayPosition) -> None:
         logger.debug("Backend texte déplacé en (%s,%s)", position.x, position.y)
 
+    def dispatch(self, callback: Callable[[], None]) -> None:
+        callback()
+
     def render(self, text: str, visible: bool, minimized: bool) -> None:
         logger.debug(
             "Backend texte rendu (visible=%s, minimized=%s, chars=%s)",
@@ -75,15 +78,34 @@ class QtOverlayBackend:
     """Fenêtre PyQt6 transparente, persistante et non bloquante pour Civilization V fenêtré."""
 
     def __init__(self, position: OverlayPosition, settings: OverlaySettings):
-        from PyQt6.QtCore import QEasingCurve, QPropertyAnimation, Qt
+        from PyQt6.QtCore import QMetaObject, QObject, QEasingCurve, QPropertyAnimation, Qt, pyqtSlot
         from PyQt6.QtGui import QGuiApplication
         from PyQt6.QtWidgets import QApplication, QFrame, QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
+
+        class _QtDispatchProxy(QObject):
+            def __init__(self, parent: QObject | None = None):
+                super().__init__(parent)
+                self._callback: Callable[[], None] | None = None
+
+            def set_callback(self, callback: Callable[[], None]) -> None:
+                self._callback = callback
+
+            @pyqtSlot()
+            def run(self) -> None:
+                callback = self._callback
+                self._callback = None
+                if callback is not None:
+                    callback()
+
+            def invoke(self) -> None:
+                QMetaObject.invokeMethod(self, "run", Qt.ConnectionType.QueuedConnection)
 
         self._qt = Qt
         self._animation_type = QPropertyAnimation
         self._easing_curve = QEasingCurve
         self._app = QApplication.instance() or QApplication([])
         self._window = QWidget()
+        self._dispatch_proxy = _QtDispatchProxy(self._window)
         self._window.setWindowTitle("MyTalleyrand Coach")
         self._window.setWindowFlags(
             Qt.WindowType.FramelessWindowHint
@@ -146,6 +168,15 @@ class QtOverlayBackend:
     def move_to(self, position: OverlayPosition) -> None:
         self._window.move(*self._clamp_to_available_screen(position.x, position.y))
         self._app.processEvents()
+
+    def dispatch(self, callback: Callable[[], None]) -> None:
+        from PyQt6.QtCore import QThread
+
+        if QThread.currentThread() is self._window.thread():
+            callback()
+            return
+        self._dispatch_proxy.set_callback(callback)
+        self._dispatch_proxy.invoke()
 
     def _clamp_to_available_screen(self, x: int, y: int) -> tuple[int, int]:
         from PyQt6.QtCore import QPoint
@@ -267,6 +298,13 @@ class TalleyrandOverlay:
             self.backend.close_button.clicked.connect(self.hide)
             self.backend.preferences_button.clicked.connect(self.open_preferences)
 
+    def _dispatch_backend(self, callback: Callable[[], None]) -> None:
+        dispatcher = getattr(self.backend, "dispatch", None)
+        if callable(dispatcher):
+            dispatcher(callback)
+            return
+        callback()
+
     def _load_state(self) -> None:
         if not self.state_file.exists():
             return
@@ -291,7 +329,7 @@ class TalleyrandOverlay:
     def move_to(self, x: int, y: int) -> None:
         self.position = OverlayPosition(x=max(0, x), y=max(0, y))
         self._save_state()
-        self.backend.move_to(self.position)
+        self._dispatch_backend(lambda: self.backend.move_to(self.position))
 
     def toggle_visibility(self) -> bool:
         return self.show() if not self.visible else self.hide()
@@ -299,24 +337,24 @@ class TalleyrandOverlay:
     def show(self) -> bool:
         self.visible = True
         self._save_state()
-        self.backend.render(self.last_rendered_text, self.visible, self.minimized)
+        self._dispatch_backend(lambda: self.backend.render(self.last_rendered_text, self.visible, self.minimized))
         return self.visible
 
     def hide(self) -> bool:
         self.visible = False
         self._save_state()
-        self.backend.render(self.last_rendered_text, self.visible, self.minimized)
+        self._dispatch_backend(lambda: self.backend.render(self.last_rendered_text, self.visible, self.minimized))
         return self.visible
 
     def minimize(self) -> None:
         self.minimized = True
         self.visible = True
         self._save_state()
-        self.backend.render(self.last_rendered_text, self.visible, self.minimized)
+        self._dispatch_backend(lambda: self.backend.render(self.last_rendered_text, self.visible, self.minimized))
 
     def close(self) -> None:
         self.hide()
-        self.backend.close()
+        self._dispatch_backend(lambda: self.backend.close())
 
     def set_preferences_callback(self, callback: Callable[[], None]) -> None:
         self._preferences_callback = callback
@@ -373,7 +411,7 @@ class TalleyrandOverlay:
             lines.append(f"Budget LLM: {marker}${total:.4f} / ${limit:.2f}")
         self.last_rendered_text = "\n".join(lines)
         self._save_state()
-        self.backend.render(self.last_rendered_text, self.visible, self.minimized)
+        self._dispatch_backend(lambda: self.backend.render(self.last_rendered_text, self.visible, self.minimized))
         logger.info("💬 Overlay mis à jour avec %s actions", len(advice.priority_actions))
 
     def show_status(self, title: str, message: str, suggestion: str, critical: bool = True) -> None:
@@ -387,5 +425,5 @@ class TalleyrandOverlay:
             self.visible = True
             self.minimized = False
             self._save_state()
-        self.backend.render(self.last_rendered_text, self.visible, self.minimized)
+        self._dispatch_backend(lambda: self.backend.render(self.last_rendered_text, self.visible, self.minimized))
         logger.warning("⚠️ Overlay statut: %s", title)
