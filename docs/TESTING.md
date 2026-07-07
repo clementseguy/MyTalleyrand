@@ -8,12 +8,13 @@ cd coach && python3 -m pytest
 
 | Fichier | Couvre |
 |---------|--------|
-| `test_config.py` | Configuration multi-niveaux, surcharges env |
+| `test_config.py` | Configuration multi-niveaux, surcharges env, résolution Keychain |
+| `test_keychain.py` | Adaptateur Keychain/keyring et fallbacks sûrs |
 | `test_llm_client.py` | Client LLM, fallback local, parsing strict |
-| `test_watcher.py` | Surveillance fichier, déduplication turn_id |
+| `test_watcher.py` | Surveillance fichier, déduplication turn_id, notifications gamestate invalide |
 | `test_coach_engine.py` | Déclenchement tour 1 + tous les 10 tours, historique, résilience JSON corrompu |
 | `test_pipeline_integration.py` | Chaîne watcher → coach → overlay |
-| `test_overlay.py` | Position, visibilité, rendu texte, résilience état corrompu |
+| `test_overlay.py` | Position, visibilité, rendu texte, statut utilisateur, résilience état corrompu |
 | `test_gamestate_schema.py` | Validation champs requis et types |
 
 ### Smoke test (premier lancement)
