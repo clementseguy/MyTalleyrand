@@ -16,6 +16,7 @@ cd coach && python3 -m pytest
 | `test_pipeline_integration.py` | Chaîne watcher → coach → overlay |
 | `test_overlay.py` | Position, visibilité, rendu texte, statut utilisateur, résilience état corrompu |
 | `test_gamestate_schema.py` | Validation champs requis et types |
+| `test_onboarding.py` | Vérifications premier lancement et marqueur `.onboarding_done` |
 
 ### Smoke test (premier lancement)
 

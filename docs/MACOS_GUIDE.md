@@ -33,6 +33,27 @@ Spécificités macOS pour le développement et l'utilisation de MyTalleyrand.
 ~/talleyrand.log
 ```
 
+## Premier lancement
+
+Après installation, lancez un diagnostic guidé sans démarrer la boucle de surveillance :
+
+```bash
+cd ~/Applications/MyTalleyrandCoach/coach
+.venv/bin/python src/main.py --onboarding
+```
+
+Le coach exécute aussi automatiquement ces vérifications au premier démarrage graphique et crée `.onboarding_done` dans le dossier `export/` du mod. Les contrôles couvrent le dossier Civ5, l’accès en écriture à `export/`, la présence éventuelle d’une clé OpenAI et la permission Accessibilité macOS.
+
+## Désinstallation
+
+```bash
+./scripts/uninstall_macos.sh
+# supprimer aussi configuration utilisateur et logs
+REMOVE_USER_DATA=1 REMOVE_LOGS=1 ./scripts/uninstall_macos.sh
+```
+
+Le script supprime `~/Applications/MyTalleyrandCoach`, `MODS/MyTalleyrand` et tente de supprimer la clé `openai` du service Keychain `MyTalleyrand`. Par défaut il conserve `~/Library/Application Support/MyTalleyrand` et `~/talleyrand.log` pour éviter une suppression accidentelle de préférences ou d’historique.
+
 ## Permissions requises
 
 ### Accessibilité (pour overlay graphique futur)

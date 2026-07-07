@@ -21,6 +21,7 @@ Civ5 (Lua) ──► gamestate.json ──► watcher ──► coach ──► 
 | **Config** | `coach/src/config.py` | Multi-niveaux : settings.json → coach.user.json → Keychain → env vars |
 | **Schéma** | `coach/src/gamestate_schema.py` | Valide gamestate v0.1.0 |
 | **Keychain** | `coach/src/keychain.py` | Stockage/récupération/suppression des clés API via `keyring` et le Keychain macOS |
+| **Onboarding** | `coach/src/onboarding.py` | Vérifications de premier lancement: chemins Civ5/export, clé API, permission Accessibilité macOS |
 
 ### Format gamestate (v0.1.0)
 
@@ -62,7 +63,7 @@ MyTalleyrand/
 │   ├── XML/, SQL/, Art/
 │   └── README.md
 ├── docs/                              # cette documentation
-└── scripts/                           # installation, validation et démarrage
+└── scripts/                           # installation, désinstallation, validation et démarrage
 ```
 
 ## Configuration
