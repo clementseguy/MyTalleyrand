@@ -67,6 +67,8 @@ cd coach
 python3 src/main.py
 ```
 
+Le bouton ⚙ de l’overlay permet de changer de stratégie de victoire en cours de partie ; le choix est sauvegardé dans `user_preferences.json` dans le dossier export du mod et repris dès l’analyse suivante. Au tour 1, l’overlay demande ce choix une seule fois en mode PyQt6.
+
 Mode one-shot (smoke test) :
 
 ```bash
@@ -78,6 +80,7 @@ python3 src/main.py --once --victory-focus science
 - Fichier attendu : `.../MODS/MyTalleyrand/export/gamestate.json`
 - Schéma validé : `coach/config/gamestate.schema.v0.json`
 - Champs minimum : `schema_version`, `turn_id`, `turn_number`, `timestamp_utc`, `player`, `resources`
+- Champs optionnels utilisés par la logique coach : `game`/`settings`/`game_parameters` pour difficulté, taille de carte et vitesse ; `cities`/`units` pour éviter les conseils trop certains quand le contexte est pauvre.
 - Déduplication par `turn_id`
 - Fréquence de refresh watcher : `0.5s`
 

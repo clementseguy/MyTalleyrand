@@ -117,3 +117,10 @@ hdiutil create -volname "Talleyrand Coach" -srcfolder dist/TalleyrandCoach.app -
 | `Operation not permitted` | Donner « Full Disk Access » à Terminal.app |
 | PyQt6 ne s'installe pas sur M1 | Vérifier que Python est arm64 natif (pas Rosetta) |
 | `pip install` échoue | Utiliser le venv : `.venv/bin/pip install -r requirements.txt` |
+
+
+## Stratégie de victoire et contexte insuffisant
+
+Au tour 1, l’overlay PyQt6 demande l’objectif de victoire. Le bouton ⚙ permet ensuite de changer cette stratégie en cours de partie ; le changement est sauvegardé dans `user_preferences.json` dans le dossier export du mod et appliqué à la prochaine analyse.
+
+Si l’overlay affiche **Contexte insuffisant**, le coach a volontairement réduit sa confiance parce que le gamestate exporté ne contient pas encore assez d’informations (par exemple aucune ville, unités absentes ou paramètres de partie manquants). Vérifiez que le mod est activé et consultez `Lua.log` si le message persiste après plusieurs tours.

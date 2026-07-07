@@ -16,6 +16,7 @@ Mod Civilization V + coach Python (LLM) pour proposer des recommandations strat�
 - Champs personnalisables :
   - `llm.system_prompt` (facultatif)
   - `llm.user_prompt_template` (facultatif, doit contenir `{victory_focus}` et `{game_state_json}`)
+- Préférences de stratégie : l’objectif de victoire est demandé au tour 1 via l’overlay, modifiable ensuite avec le bouton ⚙, puis sauvegardé dans `user_preferences.json` à côté des exports du mod.
 
 3. **Lancer le coach**
 
@@ -47,7 +48,7 @@ MyTalleyrand/
 ## Architecture (simplifiée)
 
 - **mod/** : exporte `gamestate.json` à chaque tour joueur actif.
-- **coach/** : surveille ce fichier (`poll_interval=0.5s`), valide le schéma, puis génère un conseil (LLM ou fallback local).
+- **coach/** : surveille ce fichier (`poll_interval=0.5s`), valide le schéma, détecte les paramètres de partie disponibles, puis génère un conseil (LLM, fallback local ou avertissement de contexte insuffisant).
 - **overlay** : fenêtre PyQt6 transparente et persistante qui affiche l'objectif à 10 tours, les actions prioritaires, les risques et les statuts utilisateur.
 
 ## Développement (simplifié)

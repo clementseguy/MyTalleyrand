@@ -26,13 +26,16 @@ def test_overlay_renders_objective_and_actions(tmp_path: Path):
         priority_actions=["Action A", "Action B", "Action C"],
         risks=["Risque"],
         confidence=80,
-        categories={"science": ["A"]},
+        categories={"science": ["A"], "construction": ["Action A"]},
+        action_justifications={"Action A": "Accélère les universités."},
     )
 
     overlay.show_advice(advice)
 
     assert "Objectif (10 tours)" in overlay.last_rendered_text
     assert "Action A" in overlay.last_rendered_text
+    assert "Pourquoi: Accélère les universités." in overlay.last_rendered_text
+    assert "construction" in overlay.last_rendered_text
 
 
 def test_overlay_survives_corrupt_state_file(tmp_path: Path):
@@ -137,3 +140,27 @@ def test_overlay_non_critical_status_respects_hidden_overlay(tmp_path: Path):
     overlay.show_status("Info", "Synchronisation.", "Patientez.", critical=False)
 
     assert overlay.visible is False
+
+
+def test_overlay_renders_context_insufficient_explanation(tmp_path: Path):
+    overlay = TalleyrandOverlay(state_file=tmp_path / "state.json")
+    advice = LLMAdvice(
+        objective_10_turns="Attendre davantage de contexte.",
+        priority_actions=["Action A", "Action B", "Action C"],
+        risks=["Contexte pauvre"],
+        confidence=35,
+        categories={},
+        source="context_insufficient",
+    )
+
+    overlay.show_advice(advice)
+
+    assert "Contexte insuffisant" in overlay.last_rendered_text
+    assert "certain" in overlay.last_rendered_text
+    assert "Action A" in overlay.last_rendered_text
+
+
+def test_overlay_text_backend_keeps_current_victory_focus(tmp_path: Path):
+    overlay = TalleyrandOverlay(state_file=tmp_path / "state.json")
+
+    assert overlay.request_victory_focus("science") == "science"

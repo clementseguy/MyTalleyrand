@@ -9,9 +9,10 @@ import logging
 import platform
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Protocol
+from typing import Callable, Protocol
 
 from src.llm_client import LLMAdvice
+from src.preferences import VICTORY_FOCUSES, normalize_victory_focus
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +37,8 @@ class OverlayBackend(Protocol):
 
     def close(self) -> None: ...
 
+    def prompt_victory_focus(self, current_focus: str, choices: tuple[str, ...]) -> str | None: ...
+
 
 class TextOverlayBackend:
     """Backend sans UI réelle, utilisé par les tests et les environnements sans PyQt6."""
@@ -53,6 +56,10 @@ class TextOverlayBackend:
 
     def close(self) -> None:
         logger.debug("Backend texte fermé")
+
+    def prompt_victory_focus(self, current_focus: str, choices: tuple[str, ...]) -> str | None:
+        logger.info("Backend texte: conservation de l’objectif de victoire %s", current_focus)
+        return current_focus
 
 
 def is_macos_accessibility_trusted() -> bool:
@@ -99,15 +106,19 @@ class QtOverlayBackend:
         self._title.setObjectName("title")
         self._minimize = QPushButton("–")
         self._minimize.setObjectName("chromeButton")
+        self._preferences = QPushButton("⚙")
+        self._preferences.setObjectName("chromeButton")
         self._close = QPushButton("×")
         self._close.setObjectName("chromeButton")
         header.addWidget(self._title, 1)
+        header.addWidget(self._preferences)
         header.addWidget(self._minimize)
         header.addWidget(self._close)
         layout.addLayout(header)
 
         self._content = QLabel("En attente d'un conseil…")
         self._content.setObjectName("content")
+        self._content.setTextFormat(Qt.TextFormat.PlainText)
         self._content.setWordWrap(True)
         self._content.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         layout.addWidget(self._content, 1)
@@ -127,6 +138,10 @@ class QtOverlayBackend:
     @property
     def close_button(self):
         return self._close
+
+    @property
+    def preferences_button(self):
+        return self._preferences
 
     def move_to(self, position: OverlayPosition) -> None:
         self._window.move(*self._clamp_to_available_screen(position.x, position.y))
@@ -160,6 +175,20 @@ class QtOverlayBackend:
     def close(self) -> None:
         self._window.hide()
         self._app.processEvents()
+
+    def prompt_victory_focus(self, current_focus: str, choices: tuple[str, ...]) -> str | None:
+        from PyQt6.QtWidgets import QInputDialog
+
+        selected, accepted = QInputDialog.getItem(
+            self._window,
+            "Stratégie de victoire",
+            "Choisissez l’objectif de victoire pour adapter les conseils:",
+            list(choices),
+            max(0, list(choices).index(current_focus) if current_focus in choices else 0),
+            False,
+        )
+        self._app.processEvents()
+        return str(selected) if accepted else None
 
     def _fade_in(self) -> None:
         animation = self._animation_type(self._window, b"windowOpacity")
@@ -219,6 +248,7 @@ class TalleyrandOverlay:
         self.last_rendered_text = ""
         self._load_state()
         self.backend = backend or self._build_backend(enable_qt=enable_qt)
+        self._preferences_callback: Callable[[], None] | None = None
         self._wire_backend_controls()
         logger.info("🖼️ Overlay initialisé en (%s,%s)", self.position.x, self.position.y)
 
@@ -235,6 +265,7 @@ class TalleyrandOverlay:
         if isinstance(self.backend, QtOverlayBackend):
             self.backend.minimize_button.clicked.connect(self.minimize)
             self.backend.close_button.clicked.connect(self.hide)
+            self.backend.preferences_button.clicked.connect(self.open_preferences)
 
     def _load_state(self) -> None:
         if not self.state_file.exists():
@@ -287,9 +318,25 @@ class TalleyrandOverlay:
         self.hide()
         self.backend.close()
 
+    def set_preferences_callback(self, callback: Callable[[], None]) -> None:
+        self._preferences_callback = callback
+
+    def request_victory_focus(self, current_focus: str) -> str | None:
+        return self.backend.prompt_victory_focus(normalize_victory_focus(current_focus), VICTORY_FOCUSES)
+
+    def open_preferences(self) -> None:
+        if self._preferences_callback is not None:
+            self._preferences_callback()
+
     def show_advice(self, advice: LLMAdvice) -> None:
         self.minimized = False
         lines = []
+        if advice.source == "context_insufficient":
+            lines.extend([
+                "Contexte insuffisant: le coach reste volontairement prudent.",
+                "Aucun conseil n’est affiché comme certain tant que les données de partie sont incomplètes.",
+                "",
+            ])
         if advice.source == "local_fallback":
             lines.extend(
                 [
@@ -304,7 +351,18 @@ class TalleyrandOverlay:
                 "Actions prioritaires:",
             ]
         )
-        lines.extend([f"- {action}" for action in advice.priority_actions])
+        for action in advice.priority_actions:
+            lines.append(f"- {action}")
+            justification = advice.action_justifications.get(action)
+            if justification:
+                lines.append(f"  Pourquoi: {justification}")
+        categorized_lines = []
+        for category, actions in advice.categories.items():
+            if actions:
+                categorized_lines.append(f"- {category}: {', '.join(actions)}")
+        if categorized_lines:
+            lines.append("Catégories:")
+            lines.extend(categorized_lines)
         if advice.risks:
             lines.append("Risques:")
             lines.extend([f"- {risk}" for risk in advice.risks])

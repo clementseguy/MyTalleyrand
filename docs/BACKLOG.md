@@ -31,11 +31,11 @@ Deux jalons distincts pilotent les priorités de ce backlog — ne pas les confo
 | Métrique | Valeur |
 | --- | --- |
 | **Total User Stories** | 22 |
-| **US Terminées** | 9 |
-| **US En cours (partielles)** | 3 |
-| **US À faire** | 9 |
+| **US Terminées** | 15 |
+| **US En cours (partielles)** | 0 |
+| **US À faire** | 6 |
 | **US Won't** | 1 |
-| **Progression** | 9/21 actives — 43% |
+| **Progression** | 15/21 actives — 71% |
 
 ### Répartition par Epic
 
@@ -43,7 +43,7 @@ Deux jalons distincts pilotent les priorités de ce backlog — ne pas les confo
 | --- | --- | --- | --- |
 | EPIC 1 : Fondations techniques | 5 | MVP | ✅ 5/5 terminées |
 | EPIC 2 : Interface utilisateur | 3 | MVP | ✅ 3/3 terminées |
-| EPIC 3 : Logique du coach | 5 | MVP | ✅ 2/5 terminées, 🔄 1/5 partielle, 📝 2/5 à faire |
+| EPIC 3 : Logique du coach | 5 | MVP | ✅ 5/5 terminées |
 | EPIC 4 : Maîtrise du budget & optimisation | 6 | MVP (budget) / Could | 📝 5/6 à faire, ⚪ 1 Won't |
 | EPIC 5 : Documentation, tests & partage | 4 | Partage public | ✅ 2/4 terminées, 📝 2/4 à faire |
 
@@ -281,17 +281,15 @@ Deux jalons distincts pilotent les priorités de ce backlog — ne pas les confo
 ## EPIC 3 : Logique du coach
 
 **Objectif :** Rendre les conseils réellement utiles sur toute la durée d'une partie.
-**Statut global :** ✅ 2/5 terminées, 🔄 1/5 partielle, 📝 2/5 à faire
+**Statut global :** ✅ 5/5 terminées
 
 ---
 
 ### US-006 : Dialogue d'initialisation (Tour 1)
 
-**Statut :** 🔄 En cours · **Priorité :** 🟠 Should · **Jalon :** MVP · **Sprint :** Sprint 1
+**Statut :** ✅ Terminé · **Priorité :** 🟠 Should · **Jalon :** MVP · **Sprint :** Sprint 1
 
-**Implémentation partielle :** `--victory-focus` CLI (domination/science/culture/diplomatie/équilibrée), `set_victory_focus()` dans `CoachingEngine`, transmis au prompt LLM.
-
-**Reste à faire :** popup UI au tour 1, détection auto paramètres de partie (difficulté, carte, vitesse).
+**Implémentation :** `coach/src/overlay.py` demande l’objectif de victoire au tour 1 via popup PyQt6 (fallback texte en tests), `coach/src/preferences.py` sauvegarde `user_preferences.json`, et `coach/src/coach.py` transmet l’objectif avec les paramètres de partie détectés (difficulté, carte, vitesse) au prompt LLM.
 
 **User Story :**
 > En tant que **joueur**, je veux **indiquer ma stratégie de victoire au tour 1**, afin que **le coach adapte ses conseils**.
@@ -344,13 +342,13 @@ Deux jalons distincts pilotent les priorités de ce backlog — ne pas les confo
 > En tant que **joueur**, je veux **recevoir des actions concrètes et catégorisées**, afin de **progresser vers mon objectif**.
 
 #### Tâches techniques
-- Prompt structuré → 3-5 actions catégorisées (construction/science/diplomatie/militaire/économie/culture)
+- Prompt structuré → 3-5 actions catégorisées (construction/science/diplomatie/militaire/économie/culture) avec justification courte
 - Affichage checklist interactive, tooltips explicatifs (pourquoi cette action)
 - Suivi de progression (% actions réalisées)
 
 #### Critères d'acceptation
 ✅ 3-5 actions par analyse, claires et réalisables in-game
-✅ Catégorisées, priorisées, avec justification courte
+✅ Catégorisées, affichées dans l’overlay, priorisées, avec justification courte
 
 #### Dépendances
 - US-007
@@ -359,7 +357,9 @@ Deux jalons distincts pilotent les priorités de ce backlog — ne pas les confo
 
 ### US-018 : Changement de stratégie en cours de partie *(proposition ajoutée)*
 
-**Statut :** 📝 À faire · **Priorité :** 🟠 Should · **Jalon :** MVP (confort) · **Sprint :** Sprint 2
+**Statut :** ✅ Terminé · **Priorité :** 🟠 Should · **Jalon :** MVP (confort) · **Sprint :** Sprint 2
+
+**Implémentation :** bouton ⚙ dans l’overlay, mise à jour persistée via `PreferencesStore`, prise en compte à la prochaine analyse.
 
 **User Story :**
 > En tant que **joueur**, je veux **pouvoir changer ma stratégie de victoire en cours de partie**, afin de **m'adapter si la situation géopolitique évolue**.
@@ -378,7 +378,9 @@ Deux jalons distincts pilotent les priorités de ce backlog — ne pas les confo
 
 ### US-019 : Signalement d'un contexte insuffisant *(proposition ajoutée)*
 
-**Statut :** 📝 À faire · **Priorité :** 🟠 Should · **Jalon :** MVP (confort) · **Sprint :** Sprint 2
+**Statut :** ✅ Terminé · **Priorité :** 🟠 Should · **Jalon :** MVP (confort) · **Sprint :** Sprint 2
+
+**Implémentation :** heuristique dans `CoachingEngine` pour champs joueur/villes/unités pauvres, conseil prudent `source=context_insufficient` avec confiance basse et rendu overlay distinct.
 
 **User Story :**
 > En tant que **joueur**, je veux **que le coach signale explicitement s'il manque de contexte** (ex : tour 1, pas encore de ville), afin de **ne pas recevoir de conseils incohérents ou hallucinés**.

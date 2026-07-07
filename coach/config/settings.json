@@ -13,6 +13,9 @@
     "temperature": 0.7,
     "timeout_seconds": 15
   },
+  "coach": {
+    "analysis_interval_turns": 10
+  },
   "overlay": {
     "width": 400,
     "height": 600,
