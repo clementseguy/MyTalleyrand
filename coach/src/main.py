@@ -10,7 +10,7 @@ import time
 from pathlib import Path
 
 from src.coach import CoachingEngine
-from src.config import ConfigError, load_config, validate_config
+from src.config import ConfigError, DEFAULT_SETTINGS_PATH, DEFAULT_USER_SETTINGS_PATH, load_config, validate_config
 from src.llm_client import LLMClient
 from src.overlay import OverlaySettings, TalleyrandOverlay
 from src.preferences import PreferencesStore, VICTORY_FOCUSES
@@ -76,6 +76,7 @@ def main() -> int:
         temperature=config.llm_temperature,
         system_prompt=config.llm_system_prompt,
         user_prompt_template=config.llm_user_prompt_template,
+        detail_level=config.llm_detail_level,
         api_key=config.llm_api_key,
         status_callback=lambda status: overlay.show_status(status.title, status.message, status.suggestion),
     )
@@ -85,6 +86,7 @@ def main() -> int:
         history_file=history_file,
         preferences_store=preferences_store,
         analysis_interval_turns=config.analysis_interval_turns,
+        cost_limit_usd=config.cost_limit_usd,
     )
     if args.victory_focus is not None:
         coaching_engine.set_victory_focus(args.victory_focus)
@@ -102,6 +104,24 @@ def main() -> int:
 
     overlay.set_preferences_callback(prompt_victory_focus)
 
+    watched_config_files = [DEFAULT_SETTINGS_PATH, DEFAULT_USER_SETTINGS_PATH]
+    last_config_mtime = max((path.stat().st_mtime_ns for path in watched_config_files if path.exists()), default=0)
+
+    def refresh_runtime_budget_settings() -> None:
+        nonlocal last_config_mtime
+        current_mtime = max((path.stat().st_mtime_ns for path in watched_config_files if path.exists()), default=0)
+        if current_mtime <= last_config_mtime:
+            return
+        try:
+            refreshed = load_config()
+        except ConfigError as exc:
+            logger.warning("Configuration runtime ignorée: %s", exc)
+            return
+        last_config_mtime = current_mtime
+        coaching_engine.update_runtime_settings(refreshed.analysis_interval_turns, refreshed.cost_limit_usd)
+        llm_client.detail_level = refreshed.llm_detail_level
+        logger.info("Réglages budget rechargés: intervalle=%s, détail=%s, plafond=$%.2f", refreshed.analysis_interval_turns, refreshed.llm_detail_level, refreshed.cost_limit_usd)
+
     def on_new_turn(payload: dict, source_file: Path) -> None:
         logger.info(
             "✅ Tour ingéré depuis %s (turn_id=%s, turn_number=%s)",
@@ -109,11 +129,12 @@ def main() -> int:
             payload["turn_id"],
             payload["turn_number"],
         )
+        refresh_runtime_budget_settings()
         if payload["turn_number"] == 1 and not args.once:
             prompt_victory_focus()
         advice = coaching_engine.maybe_generate_advice(payload)
         if advice is not None:
-            overlay.show_advice(advice)
+            overlay.show_advice(advice, budget_status=coaching_engine.get_budget_status())
 
     def on_gamestate_issue(issue: GameStateIssue, source_file: Path) -> None:
         logger.warning("Problème gamestate détecté depuis %s: %s", source_file, issue.message)

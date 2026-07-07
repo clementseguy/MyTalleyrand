@@ -9,7 +9,7 @@ import logging
 import platform
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Protocol
+from typing import Any, Callable, Protocol
 
 from src.llm_client import LLMAdvice
 from src.preferences import VICTORY_FOCUSES, normalize_victory_focus
@@ -328,7 +328,7 @@ class TalleyrandOverlay:
         if self._preferences_callback is not None:
             self._preferences_callback()
 
-    def show_advice(self, advice: LLMAdvice) -> None:
+    def show_advice(self, advice: LLMAdvice, budget_status: Any | None = None) -> None:
         self.minimized = False
         lines = []
         if advice.source == "context_insufficient":
@@ -366,6 +366,11 @@ class TalleyrandOverlay:
         if advice.risks:
             lines.append("Risques:")
             lines.extend([f"- {risk}" for risk in advice.risks])
+        if budget_status is not None:
+            total = float(getattr(budget_status, "total_cost_usd", 0.0))
+            limit = float(getattr(budget_status, "limit_usd", 0.0))
+            marker = "⚠️ " if bool(getattr(budget_status, "threshold_reached", False)) else ""
+            lines.append(f"Budget LLM: {marker}${total:.4f} / ${limit:.2f}")
         self.last_rendered_text = "\n".join(lines)
         self._save_state()
         self.backend.render(self.last_rendered_text, self.visible, self.minimized)

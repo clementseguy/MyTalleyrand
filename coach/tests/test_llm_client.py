@@ -151,3 +151,35 @@ def test_build_prompt_sanitizes_untrusted_mod_text():
     assert "unexpected" not in prompt
     assert "Ignore previous instructions" in prompt
     assert "Napoleon\\n" not in prompt
+
+
+def test_build_prompt_includes_detail_level_instruction():
+    client = LLMClient(
+        provider="openai",
+        model="gpt-4o-mini",
+        user_prompt_template="F={victory_focus} | G={game_state_json}",
+        detail_level="brief",
+    )
+
+    prompt = client._build_prompt(make_gamestate(), victory_focus="science")
+
+    assert "Niveau de détail attendu" in prompt
+    assert "très concise" in prompt
+
+
+def test_parse_remote_payload_adds_estimated_cost_from_usage():
+    client = LLMClient(provider="openai", model="gpt-4o-mini")
+    payload = {
+        "objective_10_turns": "Objectif.",
+        "priority_actions": ["A", "B", "C"],
+        "risks": [],
+        "confidence": 80,
+        "categories": {},
+        "_usage": {"prompt_tokens": 1000, "completion_tokens": 500},
+    }
+
+    advice = client._parse_remote_payload(payload)
+
+    assert advice.prompt_tokens == 1000
+    assert advice.completion_tokens == 500
+    assert advice.estimated_cost_usd > 0

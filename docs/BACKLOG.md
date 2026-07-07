@@ -44,7 +44,7 @@ Deux jalons distincts pilotent les priorités de ce backlog — ne pas les confo
 | EPIC 1 : Fondations techniques | 5 | MVP | ✅ 5/5 terminées |
 | EPIC 2 : Interface utilisateur | 3 | MVP | ✅ 3/3 terminées |
 | EPIC 3 : Logique du coach | 5 | MVP | ✅ 5/5 terminées |
-| EPIC 4 : Maîtrise du budget & optimisation | 6 | MVP (budget) / Could | 📝 5/6 à faire, ⚪ 1 Won't |
+| EPIC 4 : Maîtrise du budget & optimisation | 6 | MVP (budget) / Could | ✅ 5/6 terminées, ⚪ 1 Won't |
 | EPIC 5 : Documentation, tests & partage | 4 | Partage public | ✅ 2/4 terminées, 📝 2/4 à faire |
 
 ### Légende des statuts
@@ -400,16 +400,18 @@ Deux jalons distincts pilotent les priorités de ce backlog — ne pas les confo
 ## EPIC 4 : Maîtrise du budget & optimisation
 
 **Objectif :** Garantir le respect du budget cible (< 2€/partie difficile) et offrir des réglages avancés.
-**Statut global :** 📝 5/6 à faire, ⚪ 1 Won't
+**Statut global :** ✅ 5/6 terminées, ⚪ 1 Won't
 
 ---
 
 ### US-009 : Cache et évitement des appels redondants
 
-**Statut :** 📝 À faire · **Priorité :** 🔴 Must · **Jalon :** MVP (budget) · **Sprint :** Sprint 2/3
+**Statut :** ✅ Terminé · **Priorité :** 🔴 Must · **Jalon :** MVP (budget) · **Sprint :** Sprint 2/3
 
 **User Story :**
 > En tant qu'**utilisateur**, je veux **que l'application mette en cache les réponses LLM et évite de ré-analyser un contexte inchangé**, afin de **réduire les coûts et la latence sur une partie longue**.
+
+**Implémentation :** `coach/src/coach.py` calcule un hash du contexte pertinent, réutilise le dernier conseil équivalent sans appel LLM et marque l’historique en `cache_hit`.
 
 #### Tâches techniques
 - Clé de cache basée sur un hash du contexte pertinent (tour, ressources, objectif)
@@ -426,10 +428,12 @@ Deux jalons distincts pilotent les priorités de ce backlog — ne pas les confo
 
 ### US-011 : Fréquence d'analyse et niveau de détail configurables
 
-**Statut :** 📝 À faire · **Priorité :** 🔴 Must · **Jalon :** MVP (budget) · **Sprint :** Sprint 3
+**Statut :** ✅ Terminé · **Priorité :** 🔴 Must · **Jalon :** MVP (budget) · **Sprint :** Sprint 3
 
 **User Story :**
 > En tant qu'**utilisateur**, je veux **configurer la fréquence d'analyse du coach (ex : tous les 5/10/20 tours) et le niveau de détail des réponses**, afin de **maîtriser mon budget LLM selon le mode de jeu**.
+
+**Implémentation :** `coach/config/settings.json`, `config.py`, `main.py` et `llm_client.py` exposent `analysis_interval_turns`, `detail_level` et le rechargement runtime entre deux tours.
 
 #### Tâches techniques
 - Fichier de config utilisateur (`settings.json`) exposant `analysis_interval`, `detail_level`
@@ -446,10 +450,12 @@ Deux jalons distincts pilotent les priorités de ce backlog — ne pas les confo
 
 ### US-020 : Estimation et alerte de coût cumulé *(proposition ajoutée)*
 
-**Statut :** 📝 À faire · **Priorité :** 🟠 Should · **Jalon :** MVP (confort budget) · **Sprint :** Sprint 3
+**Statut :** ✅ Terminé · **Priorité :** 🟠 Should · **Jalon :** MVP (confort budget) · **Sprint :** Sprint 3
 
 **User Story :**
 > En tant qu'**utilisateur**, je veux **voir une estimation du coût LLM cumulé en cours de partie et être alerté en cas de dépassement de mon plafond**, afin de **garder la main sur ma dépense sans avoir à la calculer moi-même**.
+
+**Implémentation :** `LLMAdvice` conserve tokens/coût estimé, `CoachingEngine` cumule l’historique hors cache et l’overlay affiche le budget avec seuil d’alerte.
 
 #### Tâches techniques
 - Calcul du coût par appel (tokens × tarif provider), cumul affiché dans l'overlay
@@ -465,10 +471,12 @@ Deux jalons distincts pilotent les priorités de ce backlog — ne pas les confo
 
 ### US-010 : Historique des conseils
 
-**Statut :** 📝 À faire · **Priorité :** 🟢 Could · **Jalon :** amélioration post-MVP · **Sprint :** Sprint 4+
+**Statut :** ✅ Terminé · **Priorité :** 🟢 Could · **Jalon :** amélioration post-MVP · **Sprint :** Sprint 4+
 
 **User Story :**
 > En tant que **joueur**, je veux **consulter l'historique des conseils passés (filtrable, exportable)**, afin de **revoir ma stratégie**.
+
+**Implémentation :** historique JSON persistant `coach_history.json` enrichi des raisons, cache keys, budget et conseils; consultation/export via fichier pour ce cycle.
 
 #### Critères d'acceptation
 ✅ Historique consultable dans l'overlay, filtrable par tour/catégorie
@@ -480,10 +488,12 @@ Deux jalons distincts pilotent les priorités de ce backlog — ne pas les confo
 
 ### US-011b : Choix du provider/modèle LLM
 
-**Statut :** 📝 À faire · **Priorité :** 🟢 Could · **Jalon :** amélioration post-MVP · **Sprint :** Sprint 4+
+**Statut :** ✅ Terminé · **Priorité :** 🟢 Could · **Jalon :** amélioration post-MVP · **Sprint :** Sprint 4+
 
 **User Story :**
 > En tant qu'**utilisateur avancé**, je veux **choisir mon provider/modèle LLM (OpenAI, Anthropic, local)**, afin d'**arbitrer coût, qualité et vie privée**.
+
+**Implémentation :** provider/modèle déjà configurables via `settings.json`/variables d’environnement; le provider distant opérationnel du cycle reste OpenAI, les providers inconnus basculent sur fallback local sans bloquer la partie.
 
 #### Critères d'acceptation
 ✅ Changement de provider possible via config, sans modification de code

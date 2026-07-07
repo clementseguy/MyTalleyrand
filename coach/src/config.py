@@ -50,6 +50,8 @@ class AppConfig:
     llm_max_tokens: int
     llm_temperature: float
     llm_timeout_seconds: int
+    llm_detail_level: str
+    cost_limit_usd: float
     llm_system_prompt: str
     llm_user_prompt_template: str
     llm_api_key: str | None
@@ -206,6 +208,16 @@ def load_config(settings_path: Path | None = None, user_settings_path: Path | No
             _require_key(llm, "timeout_seconds", "llm", resolved_settings_path),
             int,
         ),
+        llm_detail_level=_env_or_default(
+            "TALLEYRAND_LLM_DETAIL_LEVEL",
+            coach.get("detail_level", "standard"),
+            str,
+        ),
+        cost_limit_usd=_env_or_default(
+            "TALLEYRAND_COST_LIMIT_USD",
+            coach.get("cost_limit_usd", 2.0),
+            float,
+        ),
         llm_system_prompt=system_prompt,
         llm_user_prompt_template=user_prompt_template,
         llm_api_key=llm_api_key,
@@ -249,6 +261,10 @@ def validate_config(config: AppConfig) -> list[str]:
         errors.append("LLM temperature must be between 0 and 2")
     if config.analysis_interval_turns <= 0:
         errors.append("Analysis interval must be positive")
+    if config.llm_detail_level not in {"brief", "standard", "detailed"}:
+        errors.append("LLM detail_level must be brief, standard, or detailed")
+    if config.cost_limit_usd <= 0:
+        errors.append("Cost limit must be positive")
     if "{victory_focus}" not in config.llm_user_prompt_template:
         errors.append("LLM user prompt template must include {victory_focus}")
     if "{game_state_json}" not in config.llm_user_prompt_template:

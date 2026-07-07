@@ -120,3 +120,52 @@ def test_coaching_engine_flags_empty_cities_mid_game(tmp_path: Path):
 
     assert advice is not None
     assert advice.source == "context_insufficient"
+
+
+def test_coaching_engine_reuses_cached_advice_for_same_context(tmp_path: Path, monkeypatch):
+    history_file = tmp_path / "history.json"
+    client = LLMClient("mock", "mock")
+    calls = {"count": 0}
+
+    def generate(game_state, victory_focus):
+        calls["count"] += 1
+        return client._generate_fallback_advice(game_state, victory_focus)
+
+    monkeypatch.setattr(client, "generate_advice", generate)
+    engine = CoachingEngine(client, history_file=history_file)
+    state = make_gamestate(turn_id=10, turn_number=10, rich=True)
+
+    first = engine.maybe_generate_advice(state)
+    second = engine.maybe_generate_advice({**state, "turn_id": 11})
+
+    assert first is not None
+    assert second is not None
+    assert second.source == "cache"
+    assert calls["count"] == 1
+    history = json.loads(history_file.read_text(encoding="utf-8"))
+    assert [entry["reason"] for entry in history] == ["cycle_10_tours", "cache_hit"]
+
+
+def test_coaching_engine_tracks_budget_without_counting_cache_hits(tmp_path: Path):
+    history_file = tmp_path / "history.json"
+    engine = CoachingEngine(LLMClient("mock", "mock"), history_file=history_file, cost_limit_usd=0.01)
+    advice = LLMClient("mock", "mock")._generate_fallback_advice(make_gamestate(rich=True), "science")
+    advice = advice.__class__(**{**advice.__dict__, "estimated_cost_usd": 0.008})
+
+    engine._append_history(make_gamestate(turn_id=10, turn_number=10, rich=True), advice, "cycle_10_tours", "k")
+    engine._append_history(make_gamestate(turn_id=11, turn_number=10, rich=True), advice, "cache_hit", "k")
+
+    budget = engine.get_budget_status()
+
+    assert budget.total_cost_usd == 0.008
+    assert budget.threshold_reached is True
+
+
+def test_coaching_engine_runtime_interval_update(tmp_path: Path):
+    engine = CoachingEngine(LLMClient("mock", "mock"), history_file=tmp_path / "history.json")
+
+    engine.update_runtime_settings(analysis_interval_turns=20, cost_limit_usd=1.5)
+
+    assert engine.get_decision(10).should_analyze is False
+    assert engine.get_decision(20).should_analyze is True
+    assert engine.cost_limit_usd == 1.5

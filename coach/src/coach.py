@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 from dataclasses import asdict, dataclass
@@ -13,6 +14,13 @@ from src.llm_client import LLMAdvice, LLMClient
 from src.preferences import PreferencesStore, UserPreferences, normalize_victory_focus
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class BudgetStatus:
+    total_cost_usd: float
+    limit_usd: float
+    threshold_reached: bool
 
 
 @dataclass(frozen=True)
@@ -30,11 +38,13 @@ class CoachingEngine:
         history_file: Path,
         preferences_store: PreferencesStore | None = None,
         analysis_interval_turns: int = 10,
+        cost_limit_usd: float = 2.0,
     ):
         self.llm_client = llm_client
         self.history_file = history_file
         self.preferences_store = preferences_store
         self.analysis_interval_turns = max(1, int(analysis_interval_turns))
+        self.cost_limit_usd = max(0.01, float(cost_limit_usd))
         self.preferences = preferences_store.load() if preferences_store is not None else UserPreferences()
         self.victory_focus = self.preferences.normalized_focus()
 
@@ -70,12 +80,19 @@ class CoachingEngine:
             logger.info("🟡 Contexte insuffisant au tour %s", turn_number)
             return advice
 
+        cache_key = self._cache_key(game_state)
+        cached = self._find_cached_advice(cache_key)
+        if cached is not None:
+            self._append_history(game_state=game_state, advice=cached, reason="cache_hit", cache_key=cache_key)
+            logger.info("♻️ Conseil réutilisé depuis le cache pour le tour %s", turn_number)
+            return cached
+
         advice = self.llm_client.generate_advice(game_state, victory_focus=self._build_victory_context())
-        self._append_history(game_state=game_state, advice=advice, reason=decision.reason)
+        self._append_history(game_state=game_state, advice=advice, reason=decision.reason, cache_key=cache_key)
         logger.info("🧠 Conseil généré pour le tour %s (%s)", turn_number, decision.reason)
         return advice
 
-    def _append_history(self, game_state: dict[str, Any], advice: LLMAdvice, reason: str) -> None:
+    def _append_history(self, game_state: dict[str, Any], advice: LLMAdvice, reason: str, cache_key: str | None = None) -> None:
         self.history_file.parent.mkdir(parents=True, exist_ok=True)
         entry = {
             "timestamp_utc": datetime.now(timezone.utc).isoformat(),
@@ -84,7 +101,9 @@ class CoachingEngine:
             "reason": reason,
             "victory_focus": self.victory_focus,
             "game_parameters": asdict(self.preferences.game_parameters),
+            "cache_key": cache_key,
             "advice": asdict(advice),
+            "budget": asdict(self.get_budget_status(additional_cost=advice.estimated_cost_usd)),
         }
 
         existing: list[dict[str, Any]] = []
@@ -97,6 +116,54 @@ class CoachingEngine:
         existing.append(entry)
         self.history_file.write_text(json.dumps(existing, indent=2, ensure_ascii=False), encoding="utf-8")
 
+
+    def get_budget_status(self, additional_cost: float = 0.0) -> BudgetStatus:
+        total = additional_cost
+        if self.history_file.exists():
+            try:
+                history = json.loads(self.history_file.read_text(encoding="utf-8"))
+            except (json.JSONDecodeError, ValueError):
+                history = []
+            for entry in history if isinstance(history, list) else []:
+                if entry.get("reason") != "cache_hit":
+                    advice = entry.get("advice", {}) if isinstance(entry, dict) else {}
+                    total += float(advice.get("estimated_cost_usd", 0) or 0)
+        return BudgetStatus(round(total, 6), self.cost_limit_usd, total >= self.cost_limit_usd * 0.8)
+
+    def update_runtime_settings(self, analysis_interval_turns: int | None = None, cost_limit_usd: float | None = None) -> None:
+        if analysis_interval_turns is not None:
+            self.analysis_interval_turns = max(1, int(analysis_interval_turns))
+        if cost_limit_usd is not None:
+            self.cost_limit_usd = max(0.01, float(cost_limit_usd))
+
+    def _find_cached_advice(self, cache_key: str) -> LLMAdvice | None:
+        if not self.history_file.exists():
+            return None
+        try:
+            history = json.loads(self.history_file.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, ValueError):
+            return None
+        if not isinstance(history, list):
+            return None
+        for entry in reversed(history):
+            if entry.get("cache_key") == cache_key and entry.get("reason") != "cache_hit":
+                payload = entry.get("advice", {})
+                if isinstance(payload, dict):
+                    cached_payload = {**payload, "source": "cache", "estimated_cost_usd": 0.0}
+                    return LLMAdvice(**cached_payload)
+        return None
+
+    def _cache_key(self, game_state: dict[str, Any]) -> str:
+        resources = game_state.get("resources") if isinstance(game_state.get("resources"), dict) else {}
+        relevant = {
+            "turn_number": int(game_state.get("turn_number", 0)),
+            "victory_focus": self._build_victory_context(),
+            "resources": {key: resources.get(key) for key in ("gold", "science", "happiness", "culture")},
+            "cities": game_state.get("cities", []),
+            "units": game_state.get("units", []),
+        }
+        blob = json.dumps(relevant, sort_keys=True, ensure_ascii=False, default=str)
+        return hashlib.sha256(blob.encode("utf-8")).hexdigest()
 
     def _build_victory_context(self) -> str:
         params = self.preferences.game_parameters
