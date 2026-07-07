@@ -86,7 +86,7 @@ class QtOverlayBackend:
         self._window.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         self._window.setWindowOpacity(settings.opacity)
         self._window.resize(settings.width, settings.height)
-        # La fenêtre est dimensionnée à la carte de conseil uniquement: les clics hors carte restent au jeu.
+        # Pas de click-through natif: seuls les clics hors fenêtre compacte restent au jeu.
 
         self._card = QFrame(self._window)
         self._card.setObjectName("coachCard")

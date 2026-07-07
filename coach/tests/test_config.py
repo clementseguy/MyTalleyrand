@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from src.config import load_config, validate_config
+from src.config import DEFAULT_SYSTEM_PROMPT, DEFAULT_USER_PROMPT_TEMPLATE, load_config, validate_config
 
 
 def _settings_template(tmp_path: Path) -> Path:
@@ -155,3 +155,11 @@ def test_load_config_reports_missing_required_section(tmp_path: Path):
         assert "section 'paths'" in str(exc)
     else:
         raise AssertionError("load_config aurait dû refuser une section obligatoire absente")
+
+
+def test_user_example_matches_prompt_constants():
+    example_path = Path(__file__).resolve().parents[1] / "config" / "coach.user.example.json"
+    payload = json.loads(example_path.read_text(encoding="utf-8"))
+
+    assert payload["llm"]["system_prompt"] == DEFAULT_SYSTEM_PROMPT
+    assert payload["llm"]["user_prompt_template"] == DEFAULT_USER_PROMPT_TEMPLATE

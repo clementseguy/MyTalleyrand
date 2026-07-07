@@ -54,7 +54,7 @@ MyTalleyrand/
 │   ├── config/gamestate.schema.v0.json
 │   ├── src/                           # modules Python du coach
 │   ├── tests/                         # tests pytest
-│   └── scripts/                       # run.sh, test.sh, lint.sh, first_test.sh
+│   └── scripts/                       # run/test/lint + génération exemple utilisateur
 ├── mod/
 │   ├── MyTalleyrand.modinfo
 │   ├── Lua/GameplayScript.lua         # export gamestate
@@ -82,6 +82,8 @@ printf "%s" "$TALLEYRAND_OPENAI_API_KEY" | python3 -m src.keychain set openai --
 python3 -m src.keychain get openai
 python3 -m src.keychain delete openai
 ```
+
+Le fichier `coach/config/coach.user.example.json` est dérivé des constantes publiques de `src.config`; utilisez `python3 coach/scripts/generate_user_example.py` depuis la racine du dépôt après toute modification des prompts par défaut.
 
 Variables d'environnement disponibles :
 

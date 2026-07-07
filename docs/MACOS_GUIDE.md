@@ -66,7 +66,7 @@ Le coach utilise PyQt6 pour afficher une fenêtre transparente, sans bordure, to
 - Les boutons `–` et `×` réduisent ou masquent seulement l'overlay : l'application continue de surveiller les nouveaux tours.
 - La position, l'état visible/masqué et l'état réduit sont persistés dans `overlay_state.json` dans le dossier d'export du mod.
 - Un nouveau conseil restaure automatiquement l'overlay réduit afin de ne pas manquer une analyse importante.
-- L'interface utilise uniquement du texte, des couleurs et une typographie système/libre : aucun asset Civilization V/Firaxis n'est embarqué.
+- L'interface utilise uniquement du texte, des couleurs et une typographie système/libre : aucun asset Civilization V/Firaxis n'est embarqué. La police `Inter` est utilisée si elle est déjà installée ; sinon Qt applique le fallback Helvetica/Arial/sans-serif.
 
 ## Watcher
 

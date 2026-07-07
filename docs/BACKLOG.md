@@ -208,7 +208,7 @@ Deux jalons distincts pilotent les priorités de ce backlog — ne pas les confo
 
 **Statut :** ✅ Terminé · **Priorité :** 🔴 Must · **Jalon :** MVP · **Sprint :** Sprint 1
 
-**Implémentation :** `coach/src/overlay.py` — contrôleur testable avec état persistant (`visible`, `minimized`, position), backend texte sans UI pour les tests et backend PyQt6 optionnel en runtime. Fenêtre frameless/translucide toujours au-dessus, boutons masquer/réduire, style QSS original sans assets propriétaires, vérification Accessibilité macOS, placement borné à l'écran disponible et journalisation des écrans détectés.
+**Implémentation :** `coach/src/overlay.py` — contrôleur testable avec état persistant (`visible`, `minimized`, position), backend texte sans UI pour les tests et backend PyQt6 optionnel en runtime. Fenêtre frameless/translucide toujours au-dessus, boutons masquer/réduire, style QSS original sans assets propriétaires, vérification Accessibilité macOS, placement borné à l'écran disponible et journalisation des écrans détectés. Décision explicite : pas de click-through natif pour préserver les boutons interactifs ; le non-blocage MVP repose sur une fenêtre compacte et déplaçable limitée à la carte de conseil.
 
 **Limitation connue :** Civilization V doit être en mode fenêtré ; les pleins écrans exclusifs macOS peuvent empêcher l'overlay de rester au-dessus.
 
@@ -218,11 +218,11 @@ Deux jalons distincts pilotent les priorités de ce backlog — ne pas les confo
 #### Tâches techniques
 - PyQt6, fenêtre transparente `WindowStaysOnTopHint` + `FramelessWindowHint`
 - Détection de la fenêtre Civ5 (mode fenêtré requis) et positionnement multi-écrans
-- Fenêtre limitée à la carte de conseil : les clics hors carte restent envoyés au jeu ; update uniquement lors d'un nouveau statut/conseil
+- Fenêtre compacte limitée à la carte de conseil : les clics hors fenêtre restent envoyés au jeu ; les clics dans la carte restent capturés par l'overlay pour permettre les boutons fermer/réduire
 - Placement borné à l'écran disponible + vérification permission macOS "Accessibilité" (`AXIsProcessTrusted`)
 
 #### Critères d'acceptation
-✅ Overlay visible par-dessus Civ5 en mode fenêtré, ne bloque pas les clics sur le jeu
+✅ Overlay visible par-dessus Civ5 en mode fenêtré ; limitation acceptée : pas de click-through natif dans la carte de conseil, non-blocage assuré par taille compacte + déplacement/masquage
 ✅ Position persistante entre sessions · ✅ Fonctionne multi-écrans · ✅ Pas de lag perceptible du jeu
 
 #### Dépendances
@@ -266,7 +266,7 @@ Deux jalons distincts pilotent les priorités de ce backlog — ne pas les confo
 
 #### Tâches techniques
 - Mockup simple (sections : objectif courant, actions prioritaires, risques)
-- Style QSS avec palette et police originales, adapté HiDPI/Retina
+- Style QSS avec palette originale, police Inter si installée et fallback système documenté, adapté HiDPI/Retina
 - Animation légère d'apparition (fade-in)
 
 #### Critères d'acceptation

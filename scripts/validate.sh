@@ -26,6 +26,7 @@ FILES=(
   "scripts/install_macos.sh"
   "scripts/start_coach.command"
   "coach/README.md"
+  "coach/scripts/generate_user_example.py"
   "coach/config/coach.user.example.json"
   "coach/src/main.py"
   "coach/src/llm_client.py"
