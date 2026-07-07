@@ -7,7 +7,7 @@ echo "🎮 MyTalleyrand - démarrage rapide"
 echo "================================="
 
 echo "1) Installation macOS (mod + coach)"
-echo "   ./script/install_macos.sh"
+echo "   ./scripts/install_macos.sh"
 
 echo ""
 echo "2) Validation projet"

@@ -31,7 +31,7 @@ FILES=(
   "coach/src/coach.py"
   "coach/src/overlay.py"
   "docs/README.md"
-  "docs/DEVELOPMENT_PLAN.md"
+  "docs/BACKLOG.md"
   "docs/TESTING.md"
 )
 

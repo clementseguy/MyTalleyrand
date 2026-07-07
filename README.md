@@ -79,9 +79,12 @@ python3 -m pytest
 
 ## Documentation
 
+- [Documentation technique](docs/README.md) — architecture, config, conventions
+- [Backlog](docs/BACKLOG.md) — statut des US, travail restant
+- [Tests](docs/TESTING.md) — tests automatisés et manuels
+- [Guide macOS](docs/MACOS_GUIDE.md) — chemins, permissions, packaging
 - [README Coach](coach/README.md)
 - [README Mod](mod/README.md)
-- [Index docs](docs/README.md)
 
 ## Licence
 
