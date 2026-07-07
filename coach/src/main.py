@@ -13,6 +13,7 @@ from src.coach import CoachingEngine
 from src.config import ConfigError, load_config, validate_config
 from src.llm_client import LLMClient
 from src.overlay import OverlaySettings, TalleyrandOverlay
+from src.preferences import PreferencesStore
 from src.watcher import GameStateIssue, GameStateWatcher
 
 logger = logging.getLogger(__name__)
@@ -32,8 +33,8 @@ def main() -> int:
     parser.add_argument("--once", action="store_true", help="démarre puis s'arrête")
     parser.add_argument(
         "--victory-focus",
-        default="science",
-        choices=["domination", "science", "culture", "diplomatie", "équilibrée"],
+        default=None,
+        choices=["domination", "science", "culture", "diplomatie", "score", "équilibrée"],
         help="objectif de victoire (phase 4)",
     )
     args = parser.parse_args()
@@ -55,6 +56,7 @@ def main() -> int:
 
     history_file = config.export_dir / "coach_history.json"
     overlay_state_file = config.export_dir / "overlay_state.json"
+    preferences_file = config.export_dir / "user_preferences.json"
 
     overlay = TalleyrandOverlay(
         state_file=overlay_state_file,
@@ -77,8 +79,27 @@ def main() -> int:
         api_key=config.llm_api_key,
         status_callback=lambda status: overlay.show_status(status.title, status.message, status.suggestion),
     )
-    coaching_engine = CoachingEngine(llm_client=llm_client, history_file=history_file)
-    coaching_engine.set_victory_focus(args.victory_focus)
+    preferences_store = PreferencesStore(preferences_file)
+    coaching_engine = CoachingEngine(
+        llm_client=llm_client,
+        history_file=history_file,
+        preferences_store=preferences_store,
+    )
+    if args.victory_focus is not None:
+        coaching_engine.set_victory_focus(args.victory_focus)
+
+    def prompt_victory_focus() -> None:
+        selected_focus = overlay.request_victory_focus(coaching_engine.victory_focus)
+        if selected_focus:
+            coaching_engine.set_victory_focus(selected_focus)
+            overlay.show_status(
+                "Stratégie mise à jour",
+                f"Objectif de victoire: {coaching_engine.victory_focus}.",
+                "Le changement sera pris en compte dès la prochaine analyse.",
+                critical=False,
+            )
+
+    overlay.set_preferences_callback(prompt_victory_focus)
 
     def on_new_turn(payload: dict, source_file: Path) -> None:
         logger.info(
@@ -87,6 +108,8 @@ def main() -> int:
             payload["turn_id"],
             payload["turn_number"],
         )
+        if payload["turn_number"] == 1 and not args.once:
+            prompt_victory_focus()
         advice = coaching_engine.maybe_generate_advice(payload)
         if advice is not None:
             overlay.show_advice(advice)

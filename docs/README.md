@@ -14,7 +14,8 @@ Civ5 (Lua) ──► gamestate.json ──► watcher ──► coach ──► 
 |-----------|-----------|------|
 | **Mod Lua** | `mod/Lua/GameplayScript.lua` | Exporte `gamestate.json` à chaque tour (écriture atomique, `pcall`) |
 | **Watcher** | `coach/src/watcher.py` | Poll le fichier, valide le schéma, déduplique par `turn_id` |
-| **Coach** | `coach/src/coach.py` | Décide quand analyser (tour 1, puis tous les 10 tours) |
+| **Coach** | `coach/src/coach.py` | Décide quand analyser (tour 1, puis tous les 10 tours), applique les préférences et signale les contextes insuffisants |
+| **Préférences** | `coach/src/preferences.py` | Persiste l’objectif de victoire et les paramètres de partie détectés |
 | **LLM Client** | `coach/src/llm_client.py` | Appel OpenAI + retry exponentiel, statuts UX réseau et fallback local |
 | **Overlay** | `coach/src/overlay.py` | Affiche conseils via backend PyQt6 runtime + backend texte pour tests/headless |
 | **Config** | `coach/src/config.py` | Multi-niveaux : settings.json → coach.user.json → Keychain → env vars |
@@ -41,7 +42,7 @@ priority_actions    : list[str] (3-5 items)
 risks               : list[str]
 confidence          : int (0-100)
 categories          : dict (economie/science/militaire/diplomatie → list[str])
-source              : string (remote ou local_fallback)
+source              : string (remote, local_fallback ou context_insufficient)
 ```
 
 ## Structure du projet
@@ -70,8 +71,9 @@ Configuration lue par le coach :
 
 1. **`coach/config/settings.json`** — valeurs par défaut (chemins, modèle LLM, overlay)
 2. **`~/Library/Application Support/MyTalleyrand/coach.user.json`** — prompts personnalisés et autres préférences non sensibles
-3. **Keychain macOS** — clé API OpenAI stockée par `keyring` sous le service `MyTalleyrand`
-4. **Variables d'environnement** — `TALLEYRAND_OPENAI_API_KEY`, `TALLEYRAND_LLM_MODEL`, etc. La variable `TALLEYRAND_OPENAI_API_KEY` reste prioritaire pour le développement/CI.
+3. **`.../MODS/MyTalleyrand/export/user_preferences.json`** — objectif de victoire choisi dans l’overlay et paramètres de partie détectés
+4. **Keychain macOS** — clé API OpenAI stockée par `keyring` sous le service `MyTalleyrand`
+5. **Variables d'environnement** — `TALLEYRAND_OPENAI_API_KEY`, `TALLEYRAND_LLM_MODEL`, etc. La variable `TALLEYRAND_OPENAI_API_KEY` reste prioritaire pour le développement/CI.
 
 Commande utile pour gérer la clé OpenAI sans relancer l'installateur :
 
@@ -105,6 +107,7 @@ Variables d'environnement disponibles :
 - Écriture atomique (tmp + rename) côté Lua avec `pcall` pour crash-safety
 - Retry exponentiel (tenacity) côté LLM avec statut overlay `Reconnexion LLM en cours`
 - Fallback local déterministe si LLM indisponible, signalé dans l'overlay avec reprise automatique au prochain tour analysé
+- Contexte insuffisant signalé distinctement avec confiance basse au lieu d’un conseil présenté comme certain
 - Tests : `cd coach && python3 -m pytest`
 - Validation complète : `./scripts/validate.sh`
 
