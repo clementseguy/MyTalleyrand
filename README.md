@@ -12,9 +12,9 @@ Mod Civilization V + coach Python (LLM) pour proposer des recommandations strat�
 
 2. **Vérifier la configuration coach**
 - Fichier utilisateur : `~/Library/Application Support/MyTalleyrand/coach.user.json`
-- Champs clés à renseigner :
-  - `llm.api_key`
-  - `llm.system_prompt` (facultatif, personnalisable)
+- La clé OpenAI est enregistrée par l’installateur dans le Keychain macOS.
+- Champs personnalisables :
+  - `llm.system_prompt` (facultatif)
   - `llm.user_prompt_template` (facultatif, doit contenir `{victory_focus}` et `{game_state_json}`)
 
 3. **Lancer le coach**

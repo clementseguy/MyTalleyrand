@@ -50,18 +50,22 @@ if [[ -z "$COACH_API_KEY" ]]; then
   read -r -p "Entrez votre clé OpenAI (laisser vide pour fallback local) : " COACH_API_KEY || true
 fi
 if [[ -n "$COACH_API_KEY" ]]; then
-  /usr/bin/python3 - "$USER_CONFIG_FILE" "$COACH_API_KEY" <<'PY'
+  "$INSTALL_BASE/coach/.venv/bin/python" - "$USER_CONFIG_FILE" "$COACH_API_KEY" <<'PY'
 import json
 import pathlib
 import sys
 
+from keyring import set_password
+
 cfg_path = pathlib.Path(sys.argv[1])
 api_key = sys.argv[2]
 data = json.loads(cfg_path.read_text(encoding="utf-8"))
-data.setdefault("llm", {})["api_key"] = api_key
+llm = data.setdefault("llm", {})
+llm.pop("api_key", None)
 cfg_path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+set_password("MyTalleyrand", "openai", api_key)
 PY
-  printf "✅ Clé API enregistrée dans %s\n" "$USER_CONFIG_FILE"
+  printf "✅ Clé API enregistrée dans le Keychain macOS (service MyTalleyrand, compte openai)\n"
 fi
 
 if [[ -z "$COACH_SYSTEM_PROMPT" ]]; then
