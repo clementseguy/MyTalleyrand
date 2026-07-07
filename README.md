@@ -20,6 +20,8 @@ Mod Civilization V + coach Python (LLM) pour proposer des recommandations strat√
 3. **Lancer le coach**
 
 ```bash
+open ~/Applications/MyTalleyrandCoach/start_coach.command
+# ou :
 cd ~/Applications/MyTalleyrandCoach/coach
 .venv/bin/python src/main.py
 ```

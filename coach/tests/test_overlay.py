@@ -116,3 +116,24 @@ def test_overlay_hide_does_not_clear_rendered_advice(tmp_path: Path):
     assert overlay.visible is False
     assert "Construire une bibliothèque" in overlay.last_rendered_text
     assert "Risque A" in overlay.last_rendered_text
+
+
+def test_overlay_critical_status_restores_hidden_overlay(tmp_path: Path):
+    overlay = TalleyrandOverlay(state_file=tmp_path / "state.json")
+    overlay.hide()
+    overlay.minimize()
+
+    overlay.show_status("Erreur critique", "LLM indisponible.", "Vérifiez la clé API.")
+
+    assert overlay.visible is True
+    assert overlay.minimized is False
+    assert "Erreur critique" in overlay.last_rendered_text
+
+
+def test_overlay_non_critical_status_respects_hidden_overlay(tmp_path: Path):
+    overlay = TalleyrandOverlay(state_file=tmp_path / "state.json")
+    overlay.hide()
+
+    overlay.show_status("Info", "Synchronisation.", "Patientez.", critical=False)
+
+    assert overlay.visible is False

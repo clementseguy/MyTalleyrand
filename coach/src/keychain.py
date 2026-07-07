@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import argparse
+import getpass
 import importlib
 import importlib.util
 import logging
+import sys
 from types import ModuleType
 
 logger = logging.getLogger(__name__)
@@ -74,3 +77,44 @@ def delete_api_key(provider: str) -> bool:
 
     logger.info("Clé API %s supprimée du Keychain", account)
     return True
+
+
+def _read_secret(use_stdin: bool, provider: str) -> str:
+    if use_stdin:
+        return sys.stdin.read().strip()
+    return getpass.getpass(f"Clé API {provider}: ").strip()
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Gère les clés API MyTalleyrand dans le Keychain macOS")
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    set_parser = subparsers.add_parser("set", help="enregistre une clé API")
+    set_parser.add_argument("provider", help="provider LLM, ex: openai")
+    set_parser.add_argument("--stdin", action="store_true", help="lit la clé depuis stdin")
+
+    get_parser = subparsers.add_parser("get", help="vérifie si une clé existe")
+    get_parser.add_argument("provider", help="provider LLM, ex: openai")
+
+    delete_parser = subparsers.add_parser("delete", help="supprime une clé API")
+    delete_parser.add_argument("provider", help="provider LLM, ex: openai")
+
+    args = parser.parse_args(argv)
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s - %(message)s")
+
+    if args.command == "set":
+        secret = _read_secret(args.stdin, args.provider)
+        if not secret:
+            parser.error("clé API vide")
+        return 0 if save_api_key(args.provider, secret) else 1
+    if args.command == "get":
+        key = get_api_key(args.provider)
+        print("présente" if key else "absente")
+        return 0 if key else 1
+    if args.command == "delete":
+        return 0 if delete_api_key(args.provider) else 1
+    return 2
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -97,7 +97,7 @@ Deux jalons distincts pilotent les priorités de ce backlog — ne pas les confo
 
 **Statut :** ✅ Terminé · **Priorité :** 🔴 Must · **Jalon :** MVP · **Sprint :** Sprint 0
 
-**Implémentation :** `coach/src/` — structure modulaire Python (`main.py`, `watcher.py`, `coach.py`, `llm_client.py`, `overlay.py`, `config.py`, `gamestate_schema.py`, `keychain.py`). Polling `stat.st_mtime_ns` (0.5s), déduplication par `turn_id`, logging fichier + stdout.
+**Implémentation :** `coach/src/` — structure modulaire Python (`main.py`, `watcher.py`, `coach.py`, `llm_client.py`, `overlay.py`, `config.py`, `gamestate_schema.py`, `keychain.py`). Polling `stat.st_mtime_ns` (0.5s), déduplication par `turn_id`, logging fichier + stdout. L'installateur génère `~/Applications/MyTalleyrandCoach/start_coach.command` et le dépôt fournit `scripts/start_coach.command` comme lanceur double-cliquable.
 
 > Note : le file watching utilise du polling simple (pas `watchdog`). Migration possible en amélioration future.
 
@@ -106,9 +106,9 @@ Deux jalons distincts pilotent les priorités de ce backlog — ne pas les confo
 
 #### Tâches techniques
 - Stack : Python 3.11+ (natif macOS, simple pour MVP)
-- Structure modulaire (`file_watcher.py`, `llm_client.py`, `game_analyzer.py`, `ui/overlay.py`)
-- Lecture de `gamestate.json` + polling via `watchdog`
-- Logging dans `~/coach.log`
+- Structure modulaire réelle (`watcher.py`, `llm_client.py`, `coach.py`, `overlay.py`)
+- Lecture de `gamestate.json` + polling léger sans dépendance `watchdog`
+- Logging dans le fichier configuré (`~/talleyrand.log` par défaut) + stdout
 - Script de lancement macOS double-cliquable (`start_coach.command`)
 
 #### Critères d'acceptation
@@ -141,7 +141,7 @@ Deux jalons distincts pilotent les priorités de ce backlog — ne pas les confo
 
 #### Critères d'acceptation
 ✅ Appel API réussi, réponse parsée en JSON
-✅ Temps de réponse < 10s (95e percentile) · ✅ Coût estimé < $0.05 par analyse
+⚠️ Temps de réponse < 10s et coût < $0.05/analyse non mesurés automatiquement à ce stade
 ✅ Clé API stockée dans le Keychain via `keyring`; le fichier JSON utilisateur ne contient plus de clé en nouvelle installation
 
 #### Dépendances
@@ -208,7 +208,7 @@ Deux jalons distincts pilotent les priorités de ce backlog — ne pas les confo
 
 **Statut :** ✅ Terminé · **Priorité :** 🔴 Must · **Jalon :** MVP · **Sprint :** Sprint 1
 
-**Implémentation :** `coach/src/overlay.py` — contrôleur testable avec état persistant (`visible`, `minimized`, position), backend texte sans UI pour les tests et backend PyQt6 optionnel en runtime. Fenêtre frameless/translucide toujours au-dessus, boutons masquer/réduire, style QSS original sans assets propriétaires, vérification Accessibilité macOS et journalisation des écrans détectés.
+**Implémentation :** `coach/src/overlay.py` — contrôleur testable avec état persistant (`visible`, `minimized`, position), backend texte sans UI pour les tests et backend PyQt6 optionnel en runtime. Fenêtre frameless/translucide toujours au-dessus, boutons masquer/réduire, style QSS original sans assets propriétaires, vérification Accessibilité macOS, placement borné à l'écran disponible et journalisation des écrans détectés.
 
 **Limitation connue :** Civilization V doit être en mode fenêtré ; les pleins écrans exclusifs macOS peuvent empêcher l'overlay de rester au-dessus.
 
@@ -218,8 +218,8 @@ Deux jalons distincts pilotent les priorités de ce backlog — ne pas les confo
 #### Tâches techniques
 - PyQt6, fenêtre transparente `WindowStaysOnTopHint` + `FramelessWindowHint`
 - Détection de la fenêtre Civ5 (mode fenêtré requis) et positionnement multi-écrans
-- Passthrough des clics hors zone de conseils, update rate max 30 FPS
-- Vérification permission macOS "Accessibilité" (`AXIsProcessTrusted`)
+- Fenêtre limitée à la carte de conseil : les clics hors carte restent envoyés au jeu ; update uniquement lors d'un nouveau statut/conseil
+- Placement borné à l'écran disponible + vérification permission macOS "Accessibilité" (`AXIsProcessTrusted`)
 
 #### Critères d'acceptation
 ✅ Overlay visible par-dessus Civ5 en mode fenêtré, ne bloque pas les clics sur le jeu

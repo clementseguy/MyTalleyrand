@@ -7,13 +7,15 @@ import logging
 from dataclasses import asdict, dataclass
 from typing import Any, Callable
 
+from openai import APIConnectionError, APIError, APITimeoutError, OpenAI, RateLimitError
 from tenacity import RetryCallState, retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
-from src.config import _DEFAULT_SYSTEM_PROMPT, _DEFAULT_USER_PROMPT_TEMPLATE
+from src.config import DEFAULT_SYSTEM_PROMPT, DEFAULT_USER_PROMPT_TEMPLATE
 
 logger = logging.getLogger(__name__)
 
 _ALLOWED_CATEGORIES = {"economie", "science", "militaire", "diplomatie"}
+_RETRYABLE_OPENAI_EXCEPTIONS = (APITimeoutError, APIConnectionError, RateLimitError, APIError)
 
 
 @dataclass(frozen=True)
@@ -70,8 +72,8 @@ class LLMClient:
         timeout_seconds: int = 15,
         max_tokens: int = 500,
         temperature: float = 0.2,
-        system_prompt: str = _DEFAULT_SYSTEM_PROMPT,
-        user_prompt_template: str = _DEFAULT_USER_PROMPT_TEMPLATE,
+        system_prompt: str = DEFAULT_SYSTEM_PROMPT,
+        user_prompt_template: str = DEFAULT_USER_PROMPT_TEMPLATE,
         api_key: str | None = None,
         status_callback: Callable[[LLMStatus], None] | None = None,
     ):
@@ -80,7 +82,7 @@ class LLMClient:
         self.timeout_seconds = timeout_seconds
         self.max_tokens = max_tokens
         self.temperature = temperature
-        self.system_prompt = system_prompt.strip() or _DEFAULT_SYSTEM_PROMPT
+        self.system_prompt = system_prompt.strip() or DEFAULT_SYSTEM_PROMPT
         self.user_prompt_template = user_prompt_template
         self.api_key = api_key
         self._openai_client = None
@@ -112,7 +114,7 @@ class LLMClient:
     @retry(
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=0.5, min=0.5, max=4),
-        retry=retry_if_exception_type((RuntimeError, ValueError, TimeoutError)),
+        retry=retry_if_exception_type(_RETRYABLE_OPENAI_EXCEPTIONS),
         before_sleep=_notify_retry_status,
         reraise=True,
     )
@@ -124,10 +126,6 @@ class LLMClient:
             raise RuntimeError("clé API OpenAI absente")
 
         if self._openai_client is None:
-            try:
-                from openai import OpenAI
-            except Exception as exc:  # pragma: no cover - dépendance runtime
-                raise RuntimeError("package openai indisponible") from exc
             self._openai_client = OpenAI(api_key=self.api_key, timeout=self.timeout_seconds)
 
         client = self._openai_client

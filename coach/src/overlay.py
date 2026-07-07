@@ -86,6 +86,7 @@ class QtOverlayBackend:
         self._window.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         self._window.setWindowOpacity(settings.opacity)
         self._window.resize(settings.width, settings.height)
+        # La fenêtre est dimensionnée à la carte de conseil uniquement: les clics hors carte restent au jeu.
 
         self._card = QFrame(self._window)
         self._card.setObjectName("coachCard")
@@ -112,7 +113,7 @@ class QtOverlayBackend:
         layout.addWidget(self._content, 1)
         self._window.setStyleSheet(_QSS)
         self._card.setGeometry(0, 0, settings.width, settings.height)
-        self._window.move(position.x, position.y)
+        self._window.move(*self._clamp_to_available_screen(position.x, position.y))
         self._window.show()
         self._fade_in()
         self._app.processEvents()
@@ -128,8 +129,23 @@ class QtOverlayBackend:
         return self._close
 
     def move_to(self, position: OverlayPosition) -> None:
-        self._window.move(position.x, position.y)
+        self._window.move(*self._clamp_to_available_screen(position.x, position.y))
         self._app.processEvents()
+
+    def _clamp_to_available_screen(self, x: int, y: int) -> tuple[int, int]:
+        from PyQt6.QtCore import QPoint
+        from PyQt6.QtGui import QGuiApplication
+
+        screen = QGuiApplication.screenAt(QPoint(x, y)) or QGuiApplication.primaryScreen()
+        if screen is None:
+            return max(0, x), max(0, y)
+
+        geometry = screen.availableGeometry()
+        max_x = max(geometry.left(), geometry.right() - self._window.width())
+        max_y = max(geometry.top(), geometry.bottom() - self._window.height())
+        clamped_x = min(max(x, geometry.left()), max_x)
+        clamped_y = min(max(y, geometry.top()), max_y)
+        return clamped_x, clamped_y
 
     def render(self, text: str, visible: bool, minimized: bool) -> None:
         self._content.setText(text)
@@ -297,12 +313,16 @@ class TalleyrandOverlay:
         self.backend.render(self.last_rendered_text, self.visible, self.minimized)
         logger.info("💬 Overlay mis à jour avec %s actions", len(advice.priority_actions))
 
-    def show_status(self, title: str, message: str, suggestion: str) -> None:
+    def show_status(self, title: str, message: str, suggestion: str, critical: bool = True) -> None:
         self.last_rendered_text = "\n".join(
             [
                 f"{title}: {message}",
                 f"Action suggérée: {suggestion}",
             ]
         )
+        if critical:
+            self.visible = True
+            self.minimized = False
+            self._save_state()
         self.backend.render(self.last_rendered_text, self.visible, self.minimized)
         logger.warning("⚠️ Overlay statut: %s", title)

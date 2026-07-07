@@ -24,6 +24,7 @@ FILES=(
   "mod/Lua/GameplayScript.lua"
   "mod/SQL/ModSchema.sql"
   "scripts/install_macos.sh"
+  "scripts/start_coach.command"
   "coach/README.md"
   "coach/config/coach.user.example.json"
   "coach/src/main.py"

@@ -10,7 +10,7 @@ import time
 from pathlib import Path
 
 from src.coach import CoachingEngine
-from src.config import load_config, validate_config
+from src.config import ConfigError, load_config, validate_config
 from src.llm_client import LLMClient
 from src.overlay import OverlaySettings, TalleyrandOverlay
 from src.watcher import GameStateIssue, GameStateWatcher
@@ -38,7 +38,13 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    config = load_config()
+    try:
+        config = load_config()
+    except ConfigError as exc:
+        logging.basicConfig(level=logging.ERROR, format="%(levelname)s - %(message)s")
+        logger.error("Configuration invalide: %s", exc)
+        return 1
+
     _configure_logging(config.log_file)
 
     errors = validate_config(config)

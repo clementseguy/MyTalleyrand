@@ -97,3 +97,25 @@ def test_watcher_reports_invalid_schema_issue(tmp_path: Path):
     assert len(issues) == 1
     assert issues[0].kind == "invalid_schema"
     assert "resources" in issues[0].message
+
+
+def test_watcher_reports_empty_gamestate_issue(tmp_path: Path):
+    gamestate_file = tmp_path / "gamestate.json"
+    issues = []
+    gamestate_file.write_text("", encoding="utf-8")
+
+    watcher = GameStateWatcher(
+        gamestate_file=gamestate_file,
+        callback=lambda _payload, _source: None,
+        issue_callback=lambda issue, _source: issues.append(issue),
+        poll_interval_seconds=0.05,
+    )
+    watcher.start()
+    try:
+        time.sleep(0.2)
+    finally:
+        watcher.stop()
+
+    assert len(issues) == 1
+    assert issues[0].kind == "invalid_json"
+    assert "vide" in issues[0].message
