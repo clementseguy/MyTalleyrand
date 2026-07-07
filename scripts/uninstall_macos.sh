@@ -3,6 +3,8 @@ set -euo pipefail
 
 INSTALL_BASE="${INSTALL_BASE:-$HOME/Applications/MyTalleyrandCoach}"
 CIV5_DOCS_DIR="${CIV5_DOCS_DIR:-$HOME/Documents/Aspyr/Sid Meier's Civilization 5}"
+ASPYR_CIV5_DOCS_DIR="$HOME/Documents/Aspyr/Sid Meier's Civilization 5"
+STEAM_APP_SUPPORT_CIV5_DOCS_DIR="$HOME/Library/Application Support/Sid Meier's Civilization 5"
 MOD_TARGET_DIR="$CIV5_DOCS_DIR/MODS/MyTalleyrand"
 USER_CONFIG_DIR="$HOME/Library/Application Support/MyTalleyrand"
 LOG_FILE="${TALLEYRAND_LOG_FILE:-$HOME/talleyrand.log}"
@@ -19,12 +21,21 @@ else
   printf "ℹ️  Coach absent: %s\n" "$INSTALL_BASE"
 fi
 
-if [[ -d "$MOD_TARGET_DIR" ]]; then
-  rm -rf "$MOD_TARGET_DIR"
-  printf "✅ Mod supprimé: %s\n" "$MOD_TARGET_DIR"
-else
-  printf "ℹ️  Mod absent: %s\n" "$MOD_TARGET_DIR"
-fi
+mod_uninstall_targets() {
+  printf '%s\n' "$MOD_TARGET_DIR"
+  printf '%s\n' "$ASPYR_CIV5_DOCS_DIR/MODS/MyTalleyrand"
+  printf '%s\n' "$STEAM_APP_SUPPORT_CIV5_DOCS_DIR/MODS/MyTalleyrand"
+}
+
+while IFS= read -r target_dir; do
+  [[ -n "$target_dir" ]] || continue
+  if [[ -d "$target_dir" ]]; then
+    rm -rf "$target_dir"
+    printf "✅ Mod supprimé: %s\n" "$target_dir"
+  else
+    printf "ℹ️  Mod absent: %s\n" "$target_dir"
+  fi
+done < <(mod_uninstall_targets | awk '!seen[$0]++')
 
 if command -v python3 >/dev/null 2>&1; then
   if PYTHONPATH="$PWD/coach" python3 -m src.keychain delete openai >/dev/null 2>&1; then

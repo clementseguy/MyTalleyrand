@@ -176,18 +176,40 @@ if [[ -z "$CIV5_DOCS_DIR" ]]; then
 fi
 
 # Dérive les chemins du mod à partir du dossier Civ5 confirmé (auto-détecté ou saisi).
+#
+# Sur macOS, Civilization V peut créer plusieurs dossiers qui ressemblent à des
+# dossiers utilisateur selon la distribution (Aspyr/Steam) et l'âge de
+# l'installation. Certains Steam récents détectent le jeu dans
+# ~/Library/Application Support/Sid Meier's Civilization 5, mais le menu Mods lit
+# encore les mods depuis ~/Documents/Aspyr/Sid Meier's Civilization 5/MODS.
+# Pour éviter une installation "réussie" mais invisible en jeu, on installe dans
+# le dossier détecté ET dans le dossier Aspyr historique lorsqu'il est distinct.
 MODS_DIR="$CIV5_DOCS_DIR/MODS"
 MOD_TARGET_DIR="$MODS_DIR/MyTalleyrand"
 EXPORT_DIR="$MOD_TARGET_DIR/export"
+ASPYR_CIV5_DOCS_DIR="$HOME/Documents/Aspyr/Sid Meier's Civilization 5"
 printf "\n"
 
+mod_install_targets() {
+  printf '%s\n' "$MOD_TARGET_DIR"
+  if [[ "$CIV5_DOCS_DIR" != "$ASPYR_CIV5_DOCS_DIR" ]]; then
+    printf '%s\n' "$ASPYR_CIV5_DOCS_DIR/MODS/MyTalleyrand"
+  fi
+}
 
-mkdir -p "$MODS_DIR"
-rm -rf "$MOD_TARGET_DIR"
-mkdir -p "$MOD_TARGET_DIR"
-cp -R "$ROOT_DIR/mod/." "$MOD_TARGET_DIR/"
-mkdir -p "$EXPORT_DIR"
-printf "✅ Mod installé dans: %s\n" "$MOD_TARGET_DIR"
+while IFS= read -r target_dir; do
+  [[ -n "$target_dir" ]] || continue
+  mkdir -p "$(dirname "$target_dir")"
+  rm -rf "$target_dir"
+  mkdir -p "$target_dir"
+  cp -R "$ROOT_DIR/mod/." "$target_dir/"
+  mkdir -p "$target_dir/export"
+  if [[ "$target_dir" == "$MOD_TARGET_DIR" ]]; then
+    printf "✅ Mod installé dans: %s\n" "$target_dir"
+  else
+    printf "✅ Copie de compatibilité Steam/Aspyr installée dans: %s\n" "$target_dir"
+  fi
+done < <(mod_install_targets)
 
 mkdir -p "$INSTALL_BASE"
 rm -rf "$INSTALL_BASE/coach"
@@ -330,9 +352,14 @@ cat <<EOF
        clic droit sur start_coach.command → Ouvrir → Ouvrir.
 
 🎮  DANS CIVILIZATION V :
-   1. Menu Mods → activez « MyTalleyrand »
-   2. Passez le jeu en mode fenêtré (Options → Vidéo)
-   3. Lancez une partie : les conseils s'affichent au fil des tours.
+   1. Redémarrez Civilization V si le jeu était déjà ouvert.
+   2. Menu Mods → activez « MyTalleyrand »
+   3. Passez le jeu en mode fenêtré (Options → Vidéo)
+   4. Lancez une partie : les conseils s'affichent au fil des tours.
+
+   Si le menu Mods indique encore « Aucun Mod installé », vérifiez ces dossiers :
+     • $MOD_TARGET_DIR
+     • $ASPYR_CIV5_DOCS_DIR/MODS/MyTalleyrand
 
 🩺  EN CAS DE SOUCI, diagnostic guidé :
      cd "$INSTALL_BASE/coach"
