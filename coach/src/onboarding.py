@@ -41,16 +41,19 @@ def build_onboarding_checks(config: AppConfig) -> list[OnboardingCheck]:
             suggestion="Lancez Civilization V une première fois ou ajustez TALLEYRAND_CIV5_DIR.",
         ),
         OnboardingCheck(
-            name="Dossier export",
+            name="Dossier état coach",
             ok=_can_write_directory(config.export_dir),
-            message=f"Dossier export accessible en écriture: {config.export_dir}",
-            suggestion="Vérifiez l'installation du mod et les permissions du dossier MODS/MyTalleyrand/export.",
+            message=f"Dossier d'état overlay/historique accessible en écriture: {config.export_dir}",
+            suggestion="Vérifiez l'installation du mod et les permissions du dossier MODS/MyTalleyrand.",
         ),
         OnboardingCheck(
-            name="Clé API OpenAI",
+            name=f"Clé API {config.llm_provider.capitalize()}",
             ok=bool(config.llm_api_key),
-            message="Clé API OpenAI configurée pour le provider distant.",
-            suggestion="Optionnel: enregistrez une clé avec `python3 -m src.keychain set openai` ou utilisez le fallback local.",
+            message=f"Clé API {config.llm_provider} configurée pour le provider distant.",
+            suggestion=(
+                f"Optionnel: enregistrez une clé avec `python3 -m src.keychain set {config.llm_provider}` "
+                "ou utilisez le fallback local."
+            ),
         ),
     ]
     if platform.system() == "Darwin":

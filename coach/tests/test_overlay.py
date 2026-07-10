@@ -144,6 +144,30 @@ def test_overlay_hide_does_not_clear_rendered_advice(tmp_path: Path):
     assert "Risque A" in overlay.last_rendered_text
 
 
+def test_overlay_hidden_by_close_reappears_on_next_advice(tmp_path: Path):
+    state_file = tmp_path / "state.json"
+    overlay = TalleyrandOverlay(state_file=state_file)
+    overlay.hide()
+
+    restored = TalleyrandOverlay(state_file=state_file)
+    assert restored.visible is False
+
+    restored.show_advice(
+        LLMAdvice(
+            objective_10_turns="Relancer l'économie.",
+            priority_actions=["Action A", "Action B", "Action C"],
+            risks=[],
+            confidence=75,
+            categories={},
+        )
+    )
+
+    persisted = TalleyrandOverlay(state_file=state_file)
+    assert restored.visible is True
+    assert restored.minimized is False
+    assert persisted.visible is True
+
+
 def test_overlay_critical_status_restores_hidden_overlay(tmp_path: Path):
     overlay = TalleyrandOverlay(state_file=tmp_path / "state.json")
     overlay.hide()

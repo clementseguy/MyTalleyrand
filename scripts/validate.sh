@@ -24,6 +24,10 @@ FILES=(
   "mod/Lua/GameplayScript.lua"
   "mod/SQL/ModSchema.sql"
   "scripts/install_macos.sh"
+  "scripts/run_coach.sh"
+  "scripts/run_coach.command"
+  "scripts/enable_debug.sh"
+  "scripts/audit_debug_venv.sh"
   "scripts/start_coach.command"
   "coach/README.md"
   "coach/scripts/generate_user_example.py"
@@ -37,6 +41,7 @@ FILES=(
   "docs/BACKLOG_v0.2.md"
   "docs/BACKLOG_v0.3.md"
   "docs/TESTING.md"
+  "docs/VENV_DEBUG_AUDIT.md"
 )
 
 echo "📁 Vérification des fichiers requis"

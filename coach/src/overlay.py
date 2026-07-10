@@ -409,6 +409,9 @@ class TalleyrandOverlay:
             self._preferences_callback()
 
     def show_advice(self, advice: LLMAdvice, budget_status: Any | None = None) -> None:
+        # Un nouveau conseil doit toujours redevenir visible, même si le joueur a
+        # fermé l'overlay au tour précédent avec le bouton ×.
+        self.visible = True
         self.minimized = False
         lines = []
         if advice.source == "context_insufficient":

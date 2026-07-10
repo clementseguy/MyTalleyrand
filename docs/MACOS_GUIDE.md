@@ -48,7 +48,7 @@ cd ~/Applications/MyTalleyrandCoach/coach
 .venv/bin/python src/main.py --onboarding
 ```
 
-Le coach exécute aussi automatiquement ces vérifications au premier démarrage graphique et crée `.onboarding_done` dans le dossier `export/` du mod. Les contrôles couvrent le dossier Civ5, l’accès en écriture à `export/`, la présence éventuelle d’une clé OpenAI et la permission Accessibilité macOS.
+Le coach exécute aussi automatiquement ces vérifications au premier démarrage graphique et crée `.onboarding_done` dans le dossier d'état du coach. Les contrôles couvrent le dossier Civ5, la source SQLite, la présence éventuelle d’une clé du provider actif et la permission Accessibilité macOS.
 
 ## Désinstallation
 
@@ -58,7 +58,7 @@ Le coach exécute aussi automatiquement ces vérifications au premier démarrage
 REMOVE_USER_DATA=1 REMOVE_LOGS=1 ./scripts/uninstall_macos.sh
 ```
 
-Le script supprime `~/Applications/MyTalleyrandCoach`, `MODS/MyTalleyrand` et tente de supprimer la clé `openai` du service Keychain `MyTalleyrand`. Par défaut il conserve `~/Library/Application Support/MyTalleyrand` et `~/talleyrand.log` pour éviter une suppression accidentelle de préférences ou d’historique.
+Le script supprime `~/Applications/MyTalleyrandCoach`, `MODS/MyTalleyrand` et tente de supprimer les clés `mistral` et `openai` du service Keychain `MyTalleyrand`. Par défaut il conserve `~/Library/Application Support/MyTalleyrand` et `~/talleyrand.log` pour éviter une suppression accidentelle de préférences ou d’historique.
 
 ## Permissions requises
 
@@ -91,8 +91,8 @@ Le coach utilise PyQt6 pour afficher une fenêtre transparente, sans bordure, to
 
 - Accordez la permission **Réglages Système → Confidentialité et sécurité → Accessibilité** au terminal ou au lanceur utilisé pour démarrer le coach si macOS le demande.
 - Les boutons `–` et `×` réduisent ou masquent seulement l'overlay : l'application continue de surveiller les nouveaux tours.
-- La position, l'état visible/masqué et l'état réduit sont persistés dans `overlay_state.json` dans le dossier d'export du mod.
-- Un nouveau conseil restaure automatiquement l'overlay réduit afin de ne pas manquer une analyse importante.
+- La position, l'état visible/masqué et l'état réduit sont persistés dans `overlay_state.json`.
+- `–` réduit l'overlay sans le masquer ; `×` le masque pour le tour courant. Dans les deux cas, un nouveau conseil force `visible=true` et réaffiche l'overlay afin de ne pas manquer une analyse importante.
 - Le bas de la carte affiche le budget LLM cumulé estimé pour la partie en cours; un marqueur ⚠️ apparaît quand 80% du plafond `coach.cost_limit_usd` est atteint.
 - L'interface utilise uniquement du texte, des couleurs et une typographie système/libre : aucun asset Civilization V/Firaxis n'est embarqué. La police `Inter` est utilisée si elle est déjà installée ; sinon Qt applique le fallback Helvetica/Arial/sans-serif.
 
@@ -107,9 +107,26 @@ L'implémentation actuelle utilise un polling simple (`time.sleep(0.5)` + `stat.
 `coach/src/keychain.py` utilise `keyring` pour stocker, lire et supprimer la clé API dans le Keychain macOS.
 
 Priorité de résolution de la clé API :
-1. Variable d'environnement `TALLEYRAND_OPENAI_API_KEY` (développement/CI)
-2. Keychain macOS, service `MyTalleyrand`, compte `openai`
-3. Ancien champ `coach.user.json` → `llm.api_key` seulement pour compatibilité de migration, avec avertissement dans les logs
+1. Variable d'environnement `TALLEYRAND_MISTRAL_API_KEY` ou `TALLEYRAND_OPENAI_API_KEY`
+2. Keychain macOS, service `MyTalleyrand`, compte `mistral` ou `openai`
+3. Champ `coach.user.json` → `llm.api_keys.<provider>` seulement pour migration locale, avec avertissement dans les logs
+
+## Lancement depuis le dépôt et mode debug
+
+Pour recetter les changements du dépôt courant sans utiliser la copie installée dans `~/Applications` :
+
+```bash
+./scripts/run_coach.sh --debug
+./scripts/run_coach.sh --interval 1
+```
+
+`--debug` est un raccourci pour analyser chaque tour et augmenter la verbosité des logs. Équivalent env :
+
+```bash
+TALLEYRAND_ANALYSIS_INTERVAL_TURNS=1 ./scripts/run_coach.sh
+```
+
+Le script échoue explicitement si `coach/.venv/bin/python` est absent ou cassé.
 
 ## Apple Silicon
 
@@ -169,14 +186,10 @@ CIV="$HOME/Library/Application Support/Sid Meier's Civilization 5"
 
 # 1. Activer logs + debug (jeu fermé). Le jeu réécrit config.ini à la fermeture :
 #    on verrouille le fichier en lecture seule pour que les flags tiennent.
-chmod u+w "$CIV/config.ini"
-sed -i '' -e 's/^EnableLuaDebugLibrary = 0/EnableLuaDebugLibrary = 1/' \
-          -e 's/^LoggingEnabled = 0/LoggingEnabled = 1/' \
-          -e 's/^MessageLog = 0/MessageLog = 1/' "$CIV/config.ini"
-chmod 444 "$CIV/config.ini"
+./scripts/enable_debug.sh
 
 # 2. Après TOUT changement du .modinfo, purger le cache (sinon entrées obsolètes) :
-rm -rf "$CIV/cache/"*
+#    scripts/enable_debug.sh le fait aussi.
 
 # 3. Lancer le jeu via le menu Mods, jouer un tour, puis vérifier :
 grep -i talleyrand "$CIV/Logs/Lua.log"                 # traces d'exécution du mod

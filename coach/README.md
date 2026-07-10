@@ -19,14 +19,16 @@ python3 -m venv .venv
 pip install -r requirements.txt
 ```
 
-## Configuration LLM (clé + prompts)
+## Configuration LLM (provider, clé + prompts)
 
 Le coach lit la configuration non sensible depuis :
 
 1. **Base projet** : `coach/config/settings.json`
 2. **Utilisateur local** : `~/Library/Application Support/MyTalleyrand/coach.user.json`
 
-La clé OpenAI est lue en priorité depuis `TALLEYRAND_OPENAI_API_KEY`, puis depuis le Keychain macOS (`MyTalleyrand` / `openai`).
+Mistral est le provider par défaut (`mistral-small-latest`). OpenAI reste disponible en configurant `llm.provider=openai` ou `TALLEYRAND_LLM_PROVIDER=openai`.
+
+La clé du provider actif est lue en priorité depuis `TALLEYRAND_MISTRAL_API_KEY` ou `TALLEYRAND_OPENAI_API_KEY`, puis depuis le Keychain macOS (`MyTalleyrand` / `mistral` ou `openai`).
 
 Un exemple est fourni dans `coach/config/coach.user.example.json`. Les constantes de `src.config` font foi ; régénérez l'exemple avec `python3 coach/scripts/generate_user_example.py` depuis la racine du dépôt.
 
@@ -35,7 +37,10 @@ Gestion manuelle de la clé sans relancer l'installateur :
 ```bash
 cd coach
 python3 -m src.keychain set openai
+python3 -m src.keychain set mistral
+python3 -m src.keychain get mistral
 python3 -m src.keychain get openai
+python3 -m src.keychain delete mistral
 python3 -m src.keychain delete openai
 ```
 
@@ -44,11 +49,13 @@ python3 -m src.keychain delete openai
 - `coach.analysis_interval_turns` : fréquence des analyses LLM (10 par défaut ; 20 réduit environ de moitié les appels face à 10).
 - `coach.detail_level` : `brief`, `standard` ou `detailed`; `brief` limite la verbosité et plafonne la sortie à 250 tokens, `detailed` autorise jusqu’à 700 tokens.
 - `coach.cost_limit_usd` : plafond indicatif affiché dans l’overlay (2.0 USD par défaut; à comparer au jalon produit exprimé en euros comme ordre de grandeur).
+- `llm.provider` : `mistral` par défaut, `openai` pour le fallback provider historique.
+- `llm.models` : modèles par provider (`mistral-small-latest`, `gpt-4o-mini` par défaut).
 - `llm.system_prompt` : prompt système complet.
 - `llm.user_prompt_template` : template prompt utilisateur (doit contenir `{victory_focus}` et `{game_state_json}`).
 
 > Priorité des variables d'environnement :
-> `TALLEYRAND_OPENAI_API_KEY`, `TALLEYRAND_LLM_SYSTEM_PROMPT`, `TALLEYRAND_LLM_USER_PROMPT_TEMPLATE`, `TALLEYRAND_ANALYSIS_INTERVAL_TURNS`, `TALLEYRAND_LLM_DETAIL_LEVEL`, `TALLEYRAND_COST_LIMIT_USD`.
+> `TALLEYRAND_MISTRAL_API_KEY`, `TALLEYRAND_OPENAI_API_KEY`, `TALLEYRAND_LLM_PROVIDER`, `TALLEYRAND_LLM_MODEL`, `TALLEYRAND_LLM_SYSTEM_PROMPT`, `TALLEYRAND_LLM_USER_PROMPT_TEMPLATE`, `TALLEYRAND_ANALYSIS_INTERVAL_TURNS`, `TALLEYRAND_LLM_DETAIL_LEVEL`, `TALLEYRAND_COST_LIMIT_USD`.
 
 ## Overlay
 
@@ -63,6 +70,28 @@ cd coach
 python3 src/main.py
 ```
 
+Depuis la racine du dépôt, pour recetter le code courant sans utiliser la copie installée :
+
+```bash
+./scripts/run_coach.sh --debug
+./scripts/run_coach.sh --interval 1
+```
+
+Choix du provider au lancement :
+
+```bash
+python3 src/main.py --llm-provider mistral
+python3 src/main.py --llm-provider openai
+```
+
+Mode debug tour par tour :
+
+```bash
+python3 src/main.py --debug
+python3 src/main.py --interval 1
+TALLEYRAND_ANALYSIS_INTERVAL_TURNS=1 python3 src/main.py
+```
+
 Les réglages budget (`analysis_interval_turns`, `detail_level`, `cost_limit_usd`) sont relus entre deux tours si `settings.json` ou `coach.user.json` change : une partie en cours peut donc passer de 10 à 20 tours d’intervalle sans redémarrer. Le bouton ⚙ de l’overlay permet de changer de stratégie de victoire en cours de partie ; le choix est sauvegardé dans `user_preferences.json` dans le dossier export du mod et repris dès l’analyse suivante. Au tour 1, l’overlay demande ce choix une seule fois en mode PyQt6.
 
 Mode one-shot (smoke test) :
@@ -73,7 +102,8 @@ python3 src/main.py --once --victory-focus science
 
 ## Échange de données mod ↔ coach
 
-- Fichier attendu : `.../MODS/MyTalleyrand/export/gamestate.json`
+- Source attendue par défaut : SQLite `.../ModUserData/a1b2c3d4-e5f6-7890-abcd-ef1234567890-1.db`, table `SimpleValues`, clé `gamestate_json`
+- Mode fichier `.../MODS/MyTalleyrand/export/gamestate.json` conservé seulement pour compatibilité/futur portage Windows via `TALLEYRAND_GAMESTATE_SOURCE=file`
 - Schéma validé : `coach/config/gamestate.schema.v0.json`
 - Champs minimum : `schema_version`, `turn_id`, `turn_number`, `timestamp_utc`, `player`, `resources`
 - Champs optionnels utilisés par la logique coach : `game`/`settings`/`game_parameters` pour difficulté, taille de carte et vitesse ; `cities`/`units` pour éviter les conseils trop certains quand le contexte est pauvre.

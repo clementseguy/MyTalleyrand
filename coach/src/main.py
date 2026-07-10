@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 import sys
 import time
 from pathlib import Path
@@ -13,7 +14,14 @@ if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from src.coach import CoachingEngine
-from src.config import ConfigError, DEFAULT_SETTINGS_PATH, DEFAULT_USER_SETTINGS_PATH, load_config, validate_config
+from src.config import (
+    ConfigError,
+    DEFAULT_SETTINGS_PATH,
+    DEFAULT_USER_SETTINGS_PATH,
+    SUPPORTED_LLM_PROVIDERS,
+    load_config,
+    validate_config,
+)
 from src.llm_client import LLMClient
 from src.onboarding import (
     build_onboarding_checks,
@@ -38,10 +46,44 @@ def _configure_logging(log_file: Path) -> None:
     )
 
 
+def apply_cli_overrides(args: argparse.Namespace) -> None:
+    """Applique les surcharges CLI via les variables déjà comprises par config."""
+    if args.llm_provider is not None:
+        os.environ["TALLEYRAND_LLM_PROVIDER"] = args.llm_provider
+    if args.llm_model is not None:
+        os.environ["TALLEYRAND_LLM_MODEL"] = args.llm_model
+    if args.interval is not None:
+        os.environ["TALLEYRAND_ANALYSIS_INTERVAL_TURNS"] = str(args.interval)
+    if args.debug:
+        os.environ["TALLEYRAND_ANALYSIS_INTERVAL_TURNS"] = "1"
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Talleyrand Coach")
     parser.add_argument("--once", action="store_true", help="démarre puis s'arrête")
     parser.add_argument("--onboarding", action="store_true", help="affiche les vérifications de premier lancement puis s'arrête")
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="mode recette: analyse chaque tour et logs plus verbeux",
+    )
+    parser.add_argument(
+        "--interval",
+        type=int,
+        default=None,
+        help="force la fréquence d'analyse en nombre de tours (ex: 1 pour chaque tour)",
+    )
+    parser.add_argument(
+        "--llm-provider",
+        choices=SUPPORTED_LLM_PROVIDERS,
+        default=None,
+        help="provider LLM à utiliser pour ce lancement (mistral par défaut, openai disponible)",
+    )
+    parser.add_argument(
+        "--llm-model",
+        default=None,
+        help="modèle LLM à utiliser pour ce lancement",
+    )
     parser.add_argument(
         "--victory-focus",
         default=None,
@@ -49,6 +91,9 @@ def main() -> int:
         help="objectif de victoire (phase 4)",
     )
     args = parser.parse_args()
+    if args.interval is not None and args.interval <= 0:
+        parser.error("--interval doit être un entier positif")
+    apply_cli_overrides(args)
 
     try:
         config = load_config()
@@ -58,6 +103,9 @@ def main() -> int:
         return 1
 
     _configure_logging(config.log_file)
+    if args.debug:
+        logging.getLogger().setLevel(logging.DEBUG)
+        logger.debug("Mode debug actif: analyse à chaque tour, intervalle=%s", config.analysis_interval_turns)
 
     errors = validate_config(config)
     if errors:

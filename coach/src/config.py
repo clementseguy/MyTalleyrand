@@ -13,6 +13,7 @@ from src.keychain import get_api_key
 
 DEFAULT_SETTINGS_PATH = Path(__file__).resolve().parents[1] / "config" / "settings.json"
 DEFAULT_USER_SETTINGS_PATH = Path.home() / "Library" / "Application Support" / "MyTalleyrand" / "coach.user.json"
+SUPPORTED_LLM_PROVIDERS = ("mistral", "openai")
 
 # Sources de gamestate supportées.
 GAMESTATE_SOURCES = ("sqlite", "file")
@@ -112,17 +113,55 @@ def _require_key(payload: dict[str, Any], key: str, section: str, source: Path) 
     return payload[key]
 
 
+def _normalize_provider(value: str) -> str:
+    return str(value).strip().lower()
+
+
+def _resolve_llm_model(llm: dict[str, Any], llm_user: dict[str, Any], llm_provider: str, source: Path) -> str:
+    env_model = os.getenv("TALLEYRAND_LLM_MODEL")
+    if env_model:
+        return env_model
+
+    user_models = llm_user.get("models")
+    if isinstance(user_models, dict) and llm_provider in user_models:
+        return str(user_models[llm_provider])
+    if llm_user.get("model"):
+        return str(llm_user["model"])
+
+    models = llm.get("models")
+    if isinstance(models, dict) and llm_provider in models:
+        return str(models[llm_provider])
+
+    return str(_require_key(llm, "model", "llm", source))
+
+
 def _resolve_api_key(llm_provider: str, llm_user: dict[str, Any]) -> str | None:
-    env_key = os.getenv("TALLEYRAND_OPENAI_API_KEY")
+    provider_env_name = f"TALLEYRAND_{llm_provider.upper()}_API_KEY"
+    env_key = os.getenv(provider_env_name)
     if env_key:
         return env_key
+
+    if llm_provider == "openai":
+        legacy_env_key = os.getenv("TALLEYRAND_OPENAI_API_KEY")
+        if legacy_env_key:
+            return legacy_env_key
 
     keychain_key = get_api_key(llm_provider)
     if keychain_key:
         return keychain_key
 
+    file_api_keys = llm_user.get("api_keys")
+    if isinstance(file_api_keys, dict):
+        file_key = file_api_keys.get(llm_provider)
+        if file_key and not str(file_key).startswith("<"):
+            logger.warning(
+                "Clé API %s lue depuis le fichier utilisateur; migrez-la vers le Keychain macOS",
+                llm_provider,
+            )
+            return str(file_key)
+
     legacy_file_key = llm_user.get("api_key")
-    if legacy_file_key and legacy_file_key != "<OPENAI_API_KEY>":
+    if llm_provider == "openai" and legacy_file_key and legacy_file_key != "<OPENAI_API_KEY>":
         logger.warning(
             "Clé API lue depuis le fichier utilisateur legacy; migrez-la vers le Keychain macOS"
         )
@@ -162,11 +201,11 @@ def load_config(settings_path: Path | None = None, user_settings_path: Path | No
         str,
     )
 
-    llm_provider = _env_or_default(
+    llm_provider = _normalize_provider(_env_or_default(
         "TALLEYRAND_LLM_PROVIDER",
-        _require_key(llm, "provider", "llm", resolved_settings_path),
+        llm_user.get("provider", _require_key(llm, "provider", "llm", resolved_settings_path)),
         str,
-    )
+    ))
     llm_api_key = _resolve_api_key(llm_provider=llm_provider, llm_user=llm_user)
 
     config = AppConfig(
@@ -212,11 +251,7 @@ def load_config(settings_path: Path | None = None, user_settings_path: Path | No
             )
         ),
         llm_provider=llm_provider,
-        llm_model=_env_or_default(
-            "TALLEYRAND_LLM_MODEL",
-            _require_key(llm, "model", "llm", resolved_settings_path),
-            str,
-        ),
+        llm_model=_resolve_llm_model(llm, llm_user, llm_provider, resolved_settings_path),
         llm_max_tokens=_env_or_default(
             "TALLEYRAND_LLM_MAX_TOKENS",
             _require_key(llm, "max_tokens", "llm", resolved_settings_path),
@@ -289,6 +324,8 @@ def validate_config(config: AppConfig) -> list[str]:
         errors.append("LLM detail_level must be brief, standard, or detailed")
     if config.gamestate_source not in GAMESTATE_SOURCES:
         errors.append(f"gamestate_source must be one of {GAMESTATE_SOURCES}")
+    if config.llm_provider not in SUPPORTED_LLM_PROVIDERS:
+        errors.append(f"LLM provider must be one of {SUPPORTED_LLM_PROVIDERS}")
     if not isinstance(config.cost_limit_usd, (int, float)) or config.cost_limit_usd <= 0:
         errors.append("Cost limit must be a positive number")
     if "{victory_focus}" not in config.llm_user_prompt_template:

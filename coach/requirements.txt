@@ -6,6 +6,7 @@ PyQt6>=6.6.1
 
 # LLM
 openai>=1.7.0
+httpx>=0.25.0
 
 # Utilitaires
 tenacity>=8.2.3
