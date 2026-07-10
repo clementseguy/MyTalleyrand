@@ -22,11 +22,12 @@ def test_onboarding_reports_missing_civ5_dir_and_writable_export(tmp_path: Path,
 
     checks = build_onboarding_checks(config)
 
-    assert [check.name for check in checks] == ["Dossier Civ5", "Dossier export", "Clé API OpenAI"]
+    assert [check.name for check in checks] == ["Dossier Civ5", "Dossier export", "Clé API Mistral"]
     assert checks[0].ok is False
     assert checks[1].ok is True
     assert checks[2].ok is False
     assert "TALLEYRAND_CIV5_DIR" in checks[0].suggestion
+    assert "src.keychain set mistral" in checks[2].suggestion
 
 
 def test_onboarding_report_includes_failed_actions(tmp_path: Path, monkeypatch):

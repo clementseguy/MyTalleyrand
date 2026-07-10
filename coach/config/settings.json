@@ -9,8 +9,12 @@
     "log_file": "~/talleyrand.log"
   },
   "llm": {
-    "provider": "openai",
-    "model": "gpt-4o-mini",
+    "provider": "mistral",
+    "model": "mistral-small-latest",
+    "models": {
+      "mistral": "mistral-small-latest",
+      "openai": "gpt-4o-mini"
+    },
     "max_tokens": 500,
     "temperature": 0.7,
     "timeout_seconds": 15

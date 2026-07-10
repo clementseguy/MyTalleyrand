@@ -12,7 +12,10 @@ CIV5_DOCS_DIR="${CIV5_DOCS_DIR:-}"
 USER_CONFIG_DIR="$HOME/Library/Application Support/MyTalleyrand"
 USER_CONFIG_FILE="$USER_CONFIG_DIR/coach.user.json"
 
-COACH_API_KEY="${TALLEYRAND_OPENAI_API_KEY:-}"
+COACH_PROVIDER="${TALLEYRAND_LLM_PROVIDER:-mistral}"
+MISTRAL_API_KEY="${TALLEYRAND_MISTRAL_API_KEY:-}"
+OPENAI_API_KEY="${TALLEYRAND_OPENAI_API_KEY:-}"
+COACH_API_KEY=""
 COACH_SYSTEM_PROMPT="${TALLEYRAND_LLM_SYSTEM_PROMPT:-}"
 
 # Détecte si on tourne dans un vrai terminal interactif (pour les questions).
@@ -257,25 +260,70 @@ else
   printf "ℹ️  Fichier de config existant conservé: %s\n" "$USER_CONFIG_FILE"
 fi
 
+if [[ "$COACH_PROVIDER" != "mistral" && "$COACH_PROVIDER" != "openai" ]]; then
+  printf "⚠️  Provider LLM invalide (%s), retour à mistral.\n" "$COACH_PROVIDER"
+  COACH_PROVIDER="mistral"
+fi
+if [[ -z "${TALLEYRAND_LLM_PROVIDER:-}" && -n "$OPENAI_API_KEY" && -z "$MISTRAL_API_KEY" ]]; then
+  COACH_PROVIDER="openai"
+fi
+
+if [[ "$INTERACTIVE" == "1" && -z "${TALLEYRAND_LLM_PROVIDER:-}" && -z "$MISTRAL_API_KEY" && -z "$OPENAI_API_KEY" ]]; then
+  printf "\nProvider LLM à utiliser par défaut :\n"
+  printf "  1. Mistral (recommandé)\n"
+  printf "  2. OpenAI\n"
+  read -r -p "Choix (Entrée = Mistral) : " PROVIDER_CHOICE || true
+  if [[ "${PROVIDER_CHOICE:-}" == "2" || "${PROVIDER_CHOICE:-}" =~ ^[oO] ]]; then
+    COACH_PROVIDER="openai"
+  else
+    COACH_PROVIDER="mistral"
+  fi
+fi
+
+"$VENV_PY" - "$USER_CONFIG_FILE" "$COACH_PROVIDER" <<'PY'
+import json
+import pathlib
+import sys
+
+cfg_path = pathlib.Path(sys.argv[1])
+provider = sys.argv[2]
+data = json.loads(cfg_path.read_text(encoding="utf-8"))
+data.setdefault("llm", {})["provider"] = provider
+cfg_path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+PY
+printf "✅ Provider LLM configuré: %s\n" "$COACH_PROVIDER"
+
+if [[ "$COACH_PROVIDER" == "mistral" ]]; then
+  COACH_API_KEY="$MISTRAL_API_KEY"
+else
+  COACH_API_KEY="$OPENAI_API_KEY"
+fi
+
 if [[ -z "$COACH_API_KEY" ]]; then
   printf "\n────────────────────────────────────────────────────────\n"
-  printf "🔑 Configuration de la clé OpenAI (pour des conseils IA)\n"
+  printf "🔑 Configuration de la clé %s (pour des conseils IA)\n" "$COACH_PROVIDER"
   printf "────────────────────────────────────────────────────────\n"
-  printf "La clé permet au coach d'utiliser l'IA d'OpenAI.\n"
+  printf "La clé permet au coach d'utiliser l'IA distante (%s).\n" "$COACH_PROVIDER"
   printf "  • L'obtenir est gratuit ; l'usage est payant (quelques centimes/partie).\n"
   printf "  • Sans clé, le coach fonctionne en mode local simplifié (sans IA).\n\n"
 
   if [[ "$INTERACTIVE" == "1" ]]; then
-    read -r -p "Avez-vous déjà une clé OpenAI (commence par sk-...) ? (o/N) " HAS_KEY || true
+    read -r -p "Avez-vous déjà une clé $COACH_PROVIDER ? (o/N) " HAS_KEY || true
     if [[ ! "${HAS_KEY:-}" =~ ^[oOyY]$ ]]; then
-      printf "\nPas de souci, créons-en une :\n"
-      printf "  1. Créez/connectez un compte : https://platform.openai.com/signup\n"
-      printf "  2. Ajoutez un petit crédit : https://platform.openai.com/settings/organization/billing/overview\n"
-      printf "  3. Générez la clé : https://platform.openai.com/api-keys → \"Create new secret key\"\n"
-      printf "  4. Copiez la clé (elle ne s'affiche qu'une fois !)\n\n"
+      printf "\nPas de souci, créez-en une depuis la console du provider :\n"
+      if [[ "$COACH_PROVIDER" == "mistral" ]]; then
+        printf "  • https://console.mistral.ai/api-keys\n\n"
+        KEY_URL="https://console.mistral.ai/api-keys"
+      else
+        printf "  1. Créez/connectez un compte : https://platform.openai.com/signup\n"
+        printf "  2. Ajoutez un petit crédit : https://platform.openai.com/settings/organization/billing/overview\n"
+        printf "  3. Générez la clé : https://platform.openai.com/api-keys → \"Create new secret key\"\n"
+        printf "  4. Copiez la clé (elle ne s'affiche qu'une fois !)\n\n"
+        KEY_URL="https://platform.openai.com/api-keys"
+      fi
       read -r -p "Ouvrir la page de création de clé dans le navigateur ? (O/n) " OPEN_URL || true
       if [[ ! "${OPEN_URL:-}" =~ ^[nN]$ ]]; then
-        open "https://platform.openai.com/api-keys" 2>/dev/null || true
+        open "$KEY_URL" 2>/dev/null || true
         printf "→ Page ouverte. Créez la clé, copiez-la, puis revenez ici.\n"
       fi
       pause_step "Appuyez sur Entrée quand votre clé est copiée (ou pour passer)... "
@@ -283,12 +331,12 @@ if [[ -z "$COACH_API_KEY" ]]; then
     printf "\nCollez votre clé (Cmd+V) puis Entrée. Elle reste masquée à l'écran.\n"
     printf "Laissez vide et Entrée pour utiliser le mode local sans IA.\n"
     while true; do
-      read -r -s -p "Clé OpenAI : " COACH_API_KEY || true
+      read -r -s -p "Clé $COACH_PROVIDER : " COACH_API_KEY || true
       printf "\n"
       if [[ -z "$COACH_API_KEY" ]]; then
         printf "ℹ️  Aucune clé saisie : mode local simplifié activé.\n"
         break
-      elif [[ "$COACH_API_KEY" == sk-* ]]; then
+      elif [[ "$COACH_PROVIDER" == "mistral" || "$COACH_API_KEY" == sk-* ]]; then
         break
       else
         printf "⚠️  Une clé OpenAI commence normalement par \"sk-\".\n"
@@ -313,8 +361,8 @@ llm = data.setdefault("llm", {})
 llm.pop("api_key", None)
 cfg_path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 PY
-  printf "%s" "$COACH_API_KEY" | PYTHONPATH="$INSTALL_BASE/coach" "$VENV_PY" -m src.keychain set openai --stdin
-  printf "✅ Clé API enregistrée dans le Keychain macOS (service MyTalleyrand, compte openai)\n"
+  printf "%s" "$COACH_API_KEY" | PYTHONPATH="$INSTALL_BASE/coach" "$VENV_PY" -m src.keychain set "$COACH_PROVIDER" --stdin
+  printf "✅ Clé API enregistrée dans le Keychain macOS (service MyTalleyrand, compte %s)\n" "$COACH_PROVIDER"
 fi
 
 if [[ -z "$COACH_SYSTEM_PROMPT" ]]; then
@@ -367,7 +415,8 @@ cat <<EOF
 
 📄  Vos réglages :
    - Config utilisateur : $USER_CONFIG_FILE
-   - Clé OpenAI : stockée dans le Trousseau (Keychain) macOS
+   - Provider LLM : $COACH_PROVIDER
+   - Clé API : stockée dans le Trousseau (Keychain) macOS, compte $COACH_PROVIDER
    - Settings par défaut : $INSTALL_BASE/coach/config/settings.json
 
 EOF

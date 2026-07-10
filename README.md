@@ -13,9 +13,9 @@ Mod Civilization V + coach Python (LLM) pour proposer des recommandations strat�
 | **macOS** | Vous êtes sur un Mac (c'est la seule plateforme supportée pour l'instant). |
 | **Civilization V** | Le jeu doit être installé (version Steam ou Aspyr). Lancez-le au moins une fois avant de continuer. |
 | **Python 3** | L'installateur vérifie automatiquement sa présence et vous guide s'il manque. |
-| **Une clé OpenAI** (recommandé) | Elle permet au coach de donner des conseils « intelligents ». Voir [Créer une clé OpenAI](#annexe--créer-une-clé-openai-pas-à-pas) plus bas. Sans clé, le coach fonctionne quand même en mode local simplifié. |
+| **Une clé Mistral** (recommandé) ou OpenAI | Elle permet au coach de donner des conseils « intelligents ». Mistral est le provider par défaut ; OpenAI reste disponible par configuration. Sans clé, le coach fonctionne quand même en mode local simplifié. |
 
-> 💡 La clé OpenAI est **payante à l'usage** (quelques centimes par partie en général), mais son obtention est gratuite. Vous gardez le contrôle du budget.
+> 💡 Les providers LLM sont **payants à l'usage** (quelques centimes par partie en général), mais l'obtention d'une clé est gratuite. Vous gardez le contrôle du budget.
 
 ### Étape 1 — Télécharger le projet
 
@@ -54,7 +54,7 @@ Copiez-collez cette ligne dans le Terminal, puis appuyez sur **`Entrée`** :
 ./scripts/install_macos.sh
 ```
 
-L'installateur vous accompagne : il vérifie les prérequis, installe le mod et le coach, puis vous **demande votre clé OpenAI** (il peut ouvrir automatiquement la page pour la créer si vous n'en avez pas encore). Laissez-vous guider par les messages à l'écran.
+L'installateur vous accompagne : il vérifie les prérequis, installe le mod et le coach, puis vous **demande votre clé Mistral** par défaut. Laissez-vous guider par les messages à l'écran.
 
 > Si macOS refuse de lancer le script (« autorisation refusée »), tapez d'abord :
 > ```bash
@@ -95,8 +95,33 @@ open ~/Applications/MyTalleyrandCoach/start_coach.command
 ### Où sont mes réglages ?
 
 - Fichier de configuration utilisateur : `~/Library/Application Support/MyTalleyrand/coach.user.json`
-- La clé OpenAI est stockée de façon sécurisée dans le **Trousseau (Keychain) macOS**, pas en clair dans un fichier.
+- Les clés Mistral/OpenAI sont stockées de façon sécurisée dans le **Trousseau (Keychain) macOS**, pas en clair dans un fichier.
 - L'objectif de victoire est demandé au tour 1 dans l'overlay et modifiable ensuite avec le bouton ⚙ (sauvegardé dans `user_preferences.json`).
+
+## Annexe — Choisir un provider LLM
+
+Mistral est utilisé par défaut avec le modèle `mistral-small-latest`. Pour enregistrer une clé Mistral manuellement :
+
+```bash
+cd coach
+python3 -m src.keychain set mistral
+```
+
+OpenAI reste disponible en configuration explicite :
+
+```bash
+TALLEYRAND_LLM_PROVIDER=openai python3 src/main.py
+```
+
+ou dans `~/Library/Application Support/MyTalleyrand/coach.user.json` :
+
+```json
+{
+  "llm": {
+    "provider": "openai"
+  }
+}
+```
 
 ## Annexe — Créer une clé OpenAI (pas à pas)
 
@@ -170,7 +195,7 @@ python3 -m pytest
 REMOVE_USER_DATA=1 REMOVE_LOGS=1 ./scripts/uninstall_macos.sh
 ```
 
-Le script supprime le coach installé, le mod installé et tente de révoquer la clé OpenAI stockée dans le Keychain macOS.
+Le script supprime le coach installé, le mod installé et tente de révoquer les clés Mistral/OpenAI stockées dans le Keychain macOS.
 
 ## Documentation
 
