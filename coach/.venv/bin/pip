@@ -1,4 +1,4 @@
-#!/Users/cseguy/workspace/MyTalleyrand/coach/.venv/bin/python3
+#!/Users/clement/workspace/MyTalleyrand/coach/.venv/bin/python
 # -*- coding: utf-8 -*-
 import re
 import sys
