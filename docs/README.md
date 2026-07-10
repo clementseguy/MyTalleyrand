@@ -3,17 +3,26 @@
 ## Architecture
 
 ```
-Civ5 (Lua) ──► gamestate.json ──► watcher ──► coach ──► overlay
-                 écriture atomique       polling 0.5s     tour 1 + /10 tours
-                 tmp + rename            + validation     LLM ou fallback
+Civ5 (Lua) ──► ModUserData (SQLite) ──► source ──► watcher ──► coach ──► overlay
+                Modding.OpenUserData      lecture RO   polling 0.5s   tour 1 + /10 tours
+                SimpleValues(Name,Value)  gamestate    + validation   LLM ou fallback
 ```
+
+> **Pont de données selon la plateforme.** Sur **macOS (Civ5 Steam/Aspyr)**, le
+> contexte Lua du mod n'expose ni `io` ni `os.execute` : il ne peut pas écrire de
+> fichier. Le mod persiste donc l'état de partie dans sa base
+> `Modding.OpenUserData()` (SQLite, table `SimpleValues`), que le coach lit en
+> lecture seule. Un mode `file` (lecture d'un `gamestate.json`) reste disponible
+> pour un futur portage Windows. Le format JSON du gamestate est identique dans
+> les deux cas. Détails plateforme : voir [MACOS_GUIDE.md](MACOS_GUIDE.md).
 
 ### Composants
 
 | Composant | Fichier(s) | Rôle |
 |-----------|-----------|------|
-| **Mod Lua** | `mod/Lua/GameplayScript.lua` | Exporte `gamestate.json` à chaque tour (écriture atomique, `pcall`) |
-| **Watcher** | `coach/src/watcher.py` | Poll le fichier, valide le schéma, déduplique par `turn_id` |
+| **Mod Lua** | `mod/Lua/GameplayScript.lua` | Contexte `InGameUIAddin` ; à chaque tour, écrit le JSON de gamestate dans la base `ModUserData` (SQLite) via `Modding.OpenUserData` |
+| **Source** | `coach/src/gamestate_source.py` | Abstraction de source : `SqliteModUserDataSource` (macOS, défaut) ou `FileGameStateSource` (fichier JSON) |
+| **Watcher** | `coach/src/watcher.py` | Poll la source, valide le schéma, déduplique par `turn_id` |
 | **Coach** | `coach/src/coach.py` | Décide quand analyser (tour 1, puis tous les 10 tours), applique les préférences et signale les contextes insuffisants |
 | **Préférences** | `coach/src/preferences.py` | Persiste l’objectif de victoire et les paramètres de partie détectés |
 | **LLM Client** | `coach/src/llm_client.py` | Appel OpenAI + retry exponentiel, statuts UX réseau et fallback local |
@@ -97,15 +106,18 @@ Variables d'environnement disponibles :
 | `TALLEYRAND_LLM_MODEL` | `gpt-4o-mini` | Modèle |
 | `TALLEYRAND_LLM_SYSTEM_PROMPT` | (interne) | Prompt système |
 | `TALLEYRAND_LLM_USER_PROMPT_TEMPLATE` | (interne) | Template prompt (doit contenir `{victory_focus}` et `{game_state_json}`) |
-| `TALLEYRAND_CIV5_DIR` | `~/Documents/Aspyr/...` | Dossier Civ5 |
-| `TALLEYRAND_GAMESTATE_FILE` | `.../export/gamestate.json` | Fichier surveillé |
+| `TALLEYRAND_CIV5_DIR` | `~/Library/Application Support/Sid Meier's Civilization 5` | Dossier de données Civ5 (Steam/Aspyr macOS) |
+| `TALLEYRAND_GAMESTATE_SOURCE` | `sqlite` | Source de gamestate : `sqlite` (ModUserData) ou `file` |
+| `TALLEYRAND_GAMESTATE_DB` | `.../ModUserData/a1b2c3d4-…-1.db` | Base SQLite ModUserData lue en mode `sqlite` |
+| `TALLEYRAND_GAMESTATE_FILE` | `.../export/gamestate.json` | Fichier surveillé en mode `file` |
 | `TALLEYRAND_LOG_FILE` | `~/talleyrand.log` | Fichier de log |
 
 ## Conventions
 
 - Tous les fichiers source < 500 lignes
 - Schéma gamestate versionné (`schema_version`)
-- Écriture atomique (tmp + rename) côté Lua avec `pcall` pour crash-safety
+- Côté Lua : écriture dans `ModUserData` (SQLite) via `Modding.OpenUserData`, protégée par `pcall` ; jeton de fraîcheur `write_seq` incrémenté à chaque tour
+- Côté coach : lecture SQLite en read-only (`mode=ro`) pour cohabiter avec le jeu, tolérante aux verrous/écritures concurrentes
 - Retry exponentiel (tenacity) côté LLM avec statut overlay `Reconnexion LLM en cours`
 - Fallback local déterministe si LLM indisponible, signalé dans l'overlay avec reprise automatique au prochain tour analysé
 - Contexte insuffisant signalé distinctement avec confiance basse au lieu d’un conseil présenté comme certain
@@ -114,6 +126,8 @@ Variables d'environnement disponibles :
 
 ## Liens
 
-- [BACKLOG.md](BACKLOG.md) — statuts des US et travail restant
+- [BACKLOG_v0.1.md](BACKLOG_v0.1.md) — backlog initial
+- [BACKLOG_v0.2.md](BACKLOG_v0.2.md) — nouvelles tâches debug, recette, Mistral et maintenance
+- [BACKLOG_v0.3.md](BACKLOG_v0.3.md) — préparation du partage communauté
 - [TESTING.md](TESTING.md) — tests automatisés et manuels
 - [MACOS_GUIDE.md](MACOS_GUIDE.md) — spécificités macOS (chemins, permissions, packaging)

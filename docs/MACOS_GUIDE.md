@@ -4,21 +4,27 @@ Spécificités macOS pour le développement et l'utilisation de MyTalleyrand.
 
 ## Chemins fichiers
 
-### Civilization V (Aspyr)
+### Civilization V (Steam / Aspyr)
+
+Sur la version **Steam macOS (portage Aspyr)**, le dossier de données actif est
+sous `~/Library/Application Support/` (le jeu le voit en interne comme
+`C:\Emu\AppDataParent\…` via l'émulation Windows) — **pas** `~/Documents/Aspyr/`.
 
 ```bash
-# Dossier utilisateur Civ5
-~/Documents/Aspyr/Sid Meier's Civilization 5/
+CIV="$HOME/Library/Application Support/Sid Meier's Civilization 5"
 
-# Mods
-~/Documents/Aspyr/Sid Meier's Civilization 5/MODS/MyTalleyrand/
-
-# Export gamestate (généré par le mod)
-~/Documents/Aspyr/Sid Meier's Civilization 5/MODS/MyTalleyrand/export/gamestate.json
-
-# Logs Civ5
-~/Documents/Aspyr/Sid Meier's Civilization 5/Logs/
+# Dossier de données Civ5 :            "$CIV"
+# Mods :                               "$CIV/MODS/MyTalleyrand/"
+# Données exportées par le mod (SQLite):
+#   "$CIV/ModUserData/a1b2c3d4-e5f6-7890-abcd-ef1234567890-1.db"  (table SimpleValues)
+# Logs Civ5 :                          "$CIV/Logs/"  (Lua.log, Modding.log, Database.log)
+# Config de debug :                    "$CIV/config.ini"
+# Cache des mods :                     "$CIV/cache/"  (Civ5ModsDatabase.db)
 ```
+
+> L'ancien chemin `~/Documents/Aspyr/…` correspond au Store Aspyr autonome, pas à
+> la version Steam. Installer le mod aux deux endroits provoque des erreurs
+> `UNIQUE constraint failed: ModFiles` — n'utiliser que le dossier Library ci-dessus.
 
 ### Coach (après installation)
 
@@ -130,12 +136,65 @@ xcrun notarytool submit TalleyrandCoach.zip --apple-id ... --team-id ... --wait
 hdiutil create -volname "Talleyrand Coach" -srcfolder dist/TalleyrandCoach.app -ov -format UDZO TalleyrandCoach.dmg
 ```
 
+## Mod Civ5 — packaging et debug (macOS/Aspyr)
+
+Le portage Steam/Aspyr impose plusieurs contraintes non évidentes, découvertes en
+production. À respecter sous peine que le mod « s'active » mais n'exécute rien.
+
+### Contraintes de packaging (`.modinfo`)
+
+- **Chemins des fichiers en contenu texte, avec antislash** :
+  `<File md5="…" import="0">Lua\GameplayScript.lua</File>`.
+  Le format `<File … source="Lua/GameplayScript.lua"/>` **n'est pas parsé** (aucun
+  fichier enregistré → le mod ne charge pas son Lua). Régénérer le `md5` à chaque
+  changement (le jeu le valide).
+- **Point d'entrée `InGameUIAddin` → un fichier `.xml`**, jamais un `.lua` brut
+  (sinon crash `InGame.lua:… attempt to index local 'addinFile' (a nil value)` qui
+  casse tout le chargement des addins). Le moteur exécute automatiquement le `.lua`
+  de **même nom de base** dans le même dossier. Le `<Context>` doit contenir au
+  moins un contrôle réel (une `<Box Hidden="1"/>` suffit).
+- **Un seul emplacement d'installation** : `…/Library/…/MODS/MyTalleyrand`.
+
+### Pas d'écriture fichier depuis le Lua
+
+Le contexte Lua UI n'expose ni `io` ni `os.execute`, **même avec
+`EnableLuaDebugLibrary = 1`**. Le mod écrit donc via `Modding.OpenUserData()` dans
+une base SQLite (`ModUserData/<ModID>-<version>.db`, table `SimpleValues`) que le
+coach lit. C'est le mode `sqlite` (défaut) de `coach/src/gamestate_source.py`.
+
+### Activer les logs et diagnostiquer
+
+```bash
+CIV="$HOME/Library/Application Support/Sid Meier's Civilization 5"
+
+# 1. Activer logs + debug (jeu fermé). Le jeu réécrit config.ini à la fermeture :
+#    on verrouille le fichier en lecture seule pour que les flags tiennent.
+chmod u+w "$CIV/config.ini"
+sed -i '' -e 's/^EnableLuaDebugLibrary = 0/EnableLuaDebugLibrary = 1/' \
+          -e 's/^LoggingEnabled = 0/LoggingEnabled = 1/' \
+          -e 's/^MessageLog = 0/MessageLog = 1/' "$CIV/config.ini"
+chmod 444 "$CIV/config.ini"
+
+# 2. Après TOUT changement du .modinfo, purger le cache (sinon entrées obsolètes) :
+rm -rf "$CIV/cache/"*
+
+# 3. Lancer le jeu via le menu Mods, jouer un tour, puis vérifier :
+grep -i talleyrand "$CIV/Logs/Lua.log"                 # traces d'exécution du mod
+grep -i constraint "$CIV/Logs/Modding.log"             # doit être vide
+sqlite3 "$CIV/ModUserData/a1b2c3d4-e5f6-7890-abcd-ef1234567890-1.db" \
+  "SELECT Name FROM SimpleValues;"                     # doit lister gamestate_json
+```
+
+Toujours démarrer la partie **depuis le menu Mods** (pas le menu principal), sinon
+le mod n'est pas chargé dans la session.
+
 ## Troubleshooting
 
 | Problème | Solution |
 |----------|----------|
 | Overlay invisible | Civ5 en mode fenêtré + permissions Accessibilité |
-| `gamestate.json` non généré | Vérifier mod activé + `Lua.log` + permissions dossier `export/` |
+| Base `ModUserData` vide / absente | Mod activé via le **menu Mods** ? Traces `[MyTalleyrand]` dans `Lua.log` ? Voir section packaging ci-dessous |
+| Coach « Source introuvable » | Vérifier `TALLEYRAND_GAMESTATE_DB` / le fichier `ModUserData/…-1.db` et que le jeu a lancé au moins un tour |
 | `Operation not permitted` | Donner « Full Disk Access » à Terminal.app |
 | PyQt6 ne s'installe pas sur M1 | Vérifier que Python est arm64 natif (pas Rosetta) |
 | `pip install` échoue | Utiliser le venv : `.venv/bin/pip install -r requirements.txt` |

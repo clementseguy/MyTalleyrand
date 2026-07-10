@@ -130,8 +130,8 @@ MyTalleyrand/
 
 ## Architecture (simplifiée)
 
-- **mod/** : exporte `gamestate.json` à chaque tour joueur actif.
-- **coach/** : surveille ce fichier (`poll_interval=0.5s`), valide le schéma, détecte les paramètres de partie disponibles, puis génère un conseil (LLM, fallback local ou avertissement de contexte insuffisant).
+- **mod/** : à chaque tour du joueur actif, écrit l'état de partie (JSON) dans sa base `ModUserData` (SQLite) — sur macOS le Lua ne peut pas écrire de fichier directement.
+- **coach/** : surveille cette source (`poll_interval=0.5s`), valide le schéma, détecte les paramètres de partie disponibles, puis génère un conseil (LLM, fallback local ou avertissement de contexte insuffisant).
 - **overlay** : fenêtre PyQt6 transparente et persistante qui affiche l'objectif à 10 tours, les actions prioritaires, les risques et les statuts utilisateur.
 
 ## Développement (simplifié)
@@ -175,7 +175,9 @@ Le script supprime le coach installé, le mod installé et tente de révoquer la
 ## Documentation
 
 - [Documentation technique](docs/README.md) — architecture, config, conventions
-- [Backlog](docs/BACKLOG.md) — statut des US, travail restant
+- [Backlog v0.1](docs/BACKLOG_v0.1.md) — backlog initial
+- [Backlog v0.2](docs/BACKLOG_v0.2.md) — nouvelles tâches debug, recette, Mistral et maintenance
+- [Backlog v0.3](docs/BACKLOG_v0.3.md) — préparation du partage communauté
 - [Tests](docs/TESTING.md) — tests automatisés et manuels
 - [Guide macOS](docs/MACOS_GUIDE.md) — chemins, permissions, packaging
 - [README Coach](coach/README.md)
