@@ -7,6 +7,7 @@ import logging
 from dataclasses import asdict, dataclass, field
 from typing import Any, Callable
 
+import httpx
 from openai import APIConnectionError, APIError, APITimeoutError, OpenAI, RateLimitError
 from tenacity import RetryCallState, retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
@@ -15,7 +16,8 @@ from src.config import DEFAULT_SYSTEM_PROMPT, DEFAULT_USER_PROMPT_TEMPLATE
 logger = logging.getLogger(__name__)
 
 _ALLOWED_CATEGORIES = {"construction", "economie", "science", "militaire", "diplomatie", "culture"}
-_RETRYABLE_OPENAI_EXCEPTIONS = (APITimeoutError, APIConnectionError, RateLimitError, APIError)
+_SUPPORTED_PROVIDERS = {"mistral", "openai"}
+_MISTRAL_CHAT_COMPLETIONS_URL = "https://api.mistral.ai/v1/chat/completions"
 
 
 @dataclass(frozen=True)
@@ -41,6 +43,23 @@ class LLMResponseError(ValueError):
     """Réponse distante reçue mais inutilisable (format/schema)."""
 
 
+class LLMProviderError(RuntimeError):
+    """Erreur provider normalisée pour décider du retry et du message UX."""
+
+    def __init__(self, provider: str, kind: str, message: str, *, retryable: bool = False):
+        super().__init__(message)
+        self.provider = provider
+        self.kind = kind
+        self.retryable = retryable
+
+
+class LLMRetryableProviderError(LLMProviderError):
+    """Erreur provider transitoire éligible aux retries."""
+
+    def __init__(self, provider: str, kind: str, message: str):
+        super().__init__(provider, kind, message, retryable=True)
+
+
 @dataclass(frozen=True)
 class LLMStatus:
     """Statut UX court lié à la disponibilité du provider LLM."""
@@ -58,11 +77,12 @@ def _notify_retry_status(retry_state: RetryCallState) -> None:
     next_attempt = retry_state.attempt_number + 1
     delay = retry_state.next_action.sleep if retry_state.next_action else 0
     exception = retry_state.outcome.exception() if retry_state.outcome else None
+    provider = getattr(exception, "provider", client.provider)
     client._notify_status(
         LLMStatus(
             title="Reconnexion LLM en cours",
             message=(
-                f"Le provider LLM ne répond pas ({exception}). "
+                f"Le provider LLM {provider} ne répond pas ({exception}). "
                 f"Nouvelle tentative {next_attempt}/3 dans {delay:.1f}s."
             ),
             suggestion="Gardez la partie ouverte : MyTalleyrand réessaie automatiquement.",
@@ -96,6 +116,7 @@ class LLMClient:
         self.detail_level = _normalize_detail_level(detail_level)
         self.api_key = api_key
         self._openai_client = None
+        self._mistral_http_client: httpx.Client | None = None
         self.status_callback = status_callback
 
     @property
@@ -115,6 +136,10 @@ class LLMClient:
                     suggestion="Réessayez au prochain tour analysé ; si le problème persiste, vérifiez les prompts personnalisés.",
                 )
             )
+            return self._generate_fallback_advice(game_state=game_state, victory_focus=victory_focus)
+        except LLMProviderError as exc:
+            logger.warning("⚠️ LLM %s indisponible (%s), fallback local activé", exc.provider, exc)
+            self._notify_status(status_for_provider_error(exc))
             return self._generate_fallback_advice(game_state=game_state, victory_focus=victory_focus)
         except Exception as exc:
             logger.warning("⚠️ LLM distant indisponible (%s), fallback local activé", exc)
@@ -138,35 +163,49 @@ class LLMClient:
     @retry(
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=0.5, min=0.5, max=4),
-        retry=retry_if_exception_type(_RETRYABLE_OPENAI_EXCEPTIONS),
+        retry=retry_if_exception_type(LLMRetryableProviderError),
         before_sleep=_notify_retry_status,
         reraise=True,
     )
     def _generate_remote_advice_raw(self, game_state: dict[str, Any], victory_focus: str) -> dict[str, Any]:
-        if self.provider != "openai":
-            raise RuntimeError(f"provider non supporté: {self.provider}")
+        provider = self.provider.strip().lower()
+        if provider not in _SUPPORTED_PROVIDERS:
+            raise LLMProviderError(provider, "config", f"provider non supporté: {self.provider}")
 
         if not self.api_key:
-            raise RuntimeError("clé API OpenAI absente")
+            raise LLMProviderError(provider, "auth", f"clé API {provider} absente")
 
+        if provider == "mistral":
+            return self._generate_mistral_advice_raw(game_state=game_state, victory_focus=victory_focus)
+
+        return self._generate_openai_advice_raw(game_state=game_state, victory_focus=victory_focus)
+
+    def _generate_openai_advice_raw(self, game_state: dict[str, Any], victory_focus: str) -> dict[str, Any]:
         if self._openai_client is None:
             self._openai_client = OpenAI(api_key=self.api_key, timeout=self.timeout_seconds)
 
         client = self._openai_client
 
         prompt = self._build_prompt(game_state=game_state, victory_focus=victory_focus)
-        response = client.responses.create(
-            model=self.model,
-            temperature=self.temperature,
-            max_output_tokens=self.effective_max_output_tokens,
-            input=[
-                {
-                    "role": "system",
-                    "content": [{"type": "text", "text": self.system_prompt}],
-                },
-                {"role": "user", "content": [{"type": "text", "text": prompt}]},
-            ],
-        )
+        try:
+            response = client.responses.create(
+                model=self.model,
+                temperature=self.temperature,
+                max_output_tokens=self.effective_max_output_tokens,
+                input=[
+                    {
+                        "role": "system",
+                        "content": [{"type": "text", "text": self.system_prompt}],
+                    },
+                    {"role": "user", "content": [{"type": "text", "text": prompt}]},
+                ],
+            )
+        except (APITimeoutError, APIConnectionError) as exc:
+            raise LLMRetryableProviderError("openai", "network", str(exc)) from exc
+        except RateLimitError as exc:
+            raise _map_openai_api_error(exc) from exc
+        except APIError as exc:
+            raise _map_openai_api_error(exc) from exc
 
         content = getattr(response, "output_text", "")
         if not content:
@@ -182,6 +221,60 @@ class LLMClient:
             return payload
         except json.JSONDecodeError as exc:
             raise LLMResponseError(f"JSON LLM invalide: {exc}") from exc
+
+    def _generate_mistral_advice_raw(self, game_state: dict[str, Any], victory_focus: str) -> dict[str, Any]:
+        if self._mistral_http_client is None:
+            self._mistral_http_client = httpx.Client(timeout=self.timeout_seconds)
+
+        prompt = self._build_prompt(game_state=game_state, victory_focus=victory_focus)
+        try:
+            response = self._mistral_http_client.post(
+                _MISTRAL_CHAT_COMPLETIONS_URL,
+                headers={"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"},
+                json={
+                    "model": self.model,
+                    "temperature": self.temperature,
+                    "max_tokens": self.effective_max_output_tokens,
+                    "response_format": {"type": "json_object"},
+                    "messages": [
+                        {"role": "system", "content": self.system_prompt},
+                        {"role": "user", "content": prompt},
+                    ],
+                },
+            )
+        except (httpx.TimeoutException, httpx.NetworkError) as exc:
+            raise LLMRetryableProviderError("mistral", "network", str(exc)) from exc
+        except httpx.HTTPError as exc:
+            raise LLMRetryableProviderError("mistral", "network", str(exc)) from exc
+
+        if response.status_code >= 400:
+            raise _map_mistral_http_error(response)
+
+        try:
+            body = response.json()
+        except json.JSONDecodeError as exc:
+            raise LLMResponseError(f"JSON Mistral invalide: {exc}") from exc
+
+        choices = body.get("choices") if isinstance(body, dict) else None
+        if not isinstance(choices, list) or not choices:
+            raise LLMResponseError("réponse Mistral sans choix")
+        message = choices[0].get("message") if isinstance(choices[0], dict) else None
+        content = message.get("content") if isinstance(message, dict) else None
+        if not isinstance(content, str) or not content.strip():
+            raise LLMResponseError("réponse vide du provider")
+
+        try:
+            payload = json.loads(content)
+        except json.JSONDecodeError as exc:
+            raise LLMResponseError(f"JSON LLM invalide: {exc}") from exc
+
+        if isinstance(payload, dict):
+            usage = body.get("usage") if isinstance(body.get("usage"), dict) else {}
+            payload["_usage"] = {
+                "prompt_tokens": int(usage.get("prompt_tokens", 0) or 0),
+                "completion_tokens": int(usage.get("completion_tokens", 0) or 0),
+            }
+        return payload
 
     def _build_prompt(self, game_state: dict[str, Any], victory_focus: str) -> str:
         detail_instruction = _detail_instruction(self.detail_level)
@@ -243,7 +336,7 @@ class LLMClient:
             source="remote",
             prompt_tokens=prompt_tokens,
             completion_tokens=completion_tokens,
-            estimated_cost_usd=estimate_openai_cost_usd(self.model, prompt_tokens, completion_tokens),
+            estimated_cost_usd=estimate_cost_usd(self.provider, self.model, prompt_tokens, completion_tokens),
         )
 
     def _generate_fallback_advice(self, game_state: dict[str, Any], victory_focus: str) -> LLMAdvice:
@@ -365,6 +458,39 @@ _OPENAI_PRICING_USD_PER_MILLION = {
     "gpt-4.1-nano": (0.10, 0.40),
 }
 
+_MISTRAL_PRICING_USD_PER_MILLION = {
+    "mistral-small-latest": (0.15, 0.60),
+    "mistral-large-latest": (0.50, 1.50),
+    "mistral-medium-latest": (1.50, 7.50),
+}
+
+
+def status_for_provider_error(error: LLMProviderError) -> LLMStatus:
+    provider = _provider_display_name(error.provider)
+    if error.kind == "auth":
+        return LLMStatus(
+            title=f"Clé API {provider} invalide",
+            message=f"MyTalleyrand ne peut pas authentifier le provider {error.provider}. Un conseil local est affiché.",
+            suggestion=f"Vérifiez la clé dans le Keychain avec `python3 -m src.keychain set {error.provider}`.",
+        )
+    if error.kind == "quota":
+        return LLMStatus(
+            title=f"Crédit {provider} épuisé",
+            message=f"Le provider {error.provider} refuse l'appel pour quota, crédit ou facturation. Un conseil local est affiché.",
+            suggestion="Ajoutez du crédit côté provider ou passez temporairement sur l'autre provider dans la configuration.",
+        )
+    if error.kind == "network":
+        return LLMStatus(
+            title=f"Réseau {provider} indisponible",
+            message=f"Le provider {error.provider} ne répond pas après les tentatives prévues. Un conseil local est affiché.",
+            suggestion="Vérifiez la connexion réseau ; MyTalleyrand réessaiera au prochain tour analysé.",
+        )
+    return LLMStatus(
+        title=f"Fallback {provider} activé",
+        message=f"Le provider {error.provider} est indisponible ({error}). Un conseil local est affiché.",
+        suggestion="Vérifiez la configuration LLM ou utilisez le provider de secours.",
+    )
+
 
 def estimate_openai_cost_usd(model: str, prompt_tokens: int, completion_tokens: int) -> float | None:
     pricing = _OPENAI_PRICING_USD_PER_MILLION.get(model)
@@ -374,8 +500,88 @@ def estimate_openai_cost_usd(model: str, prompt_tokens: int, completion_tokens: 
     return round((prompt_tokens / 1_000_000 * input_price) + (completion_tokens / 1_000_000 * output_price), 6)
 
 
+def estimate_mistral_cost_usd(model: str, prompt_tokens: int, completion_tokens: int) -> float | None:
+    pricing = _MISTRAL_PRICING_USD_PER_MILLION.get(model)
+    if pricing is None:
+        return None
+    input_price, output_price = pricing
+    return round((prompt_tokens / 1_000_000 * input_price) + (completion_tokens / 1_000_000 * output_price), 6)
+
+
+def estimate_cost_usd(provider: str, model: str, prompt_tokens: int, completion_tokens: int) -> float | None:
+    normalized_provider = provider.strip().lower()
+    if normalized_provider == "openai":
+        return estimate_openai_cost_usd(model, prompt_tokens, completion_tokens)
+    if normalized_provider == "mistral":
+        return estimate_mistral_cost_usd(model, prompt_tokens, completion_tokens)
+    return None
+
+
 def estimate_game_budget_usd(model: str, prompt_tokens: int, completion_tokens: int, analyses: int) -> float | None:
     single_call = estimate_openai_cost_usd(model, prompt_tokens, completion_tokens)
     if single_call is None:
         return None
     return round(single_call * max(0, analyses), 6)
+
+
+def _map_openai_api_error(exc: APIError) -> LLMProviderError:
+    status_code = int(getattr(exc, "status_code", 0) or 0)
+    body = getattr(exc, "body", None)
+    text = _error_payload_text(body) or str(exc)
+    if status_code in {401, 403}:
+        return LLMProviderError("openai", "auth", text)
+    if _looks_like_quota_error(text):
+        return LLMProviderError("openai", "quota", text)
+    if status_code == 429:
+        return LLMRetryableProviderError("openai", "network", text)
+    if status_code >= 500 or status_code == 0:
+        return LLMRetryableProviderError("openai", "network", text)
+    return LLMProviderError("openai", "provider", text)
+
+
+def _map_mistral_http_error(response: httpx.Response) -> LLMProviderError:
+    text = _response_error_text(response)
+    if response.status_code in {401, 403}:
+        return LLMProviderError("mistral", "auth", text)
+    if response.status_code == 402 or _looks_like_quota_error(text):
+        return LLMProviderError("mistral", "quota", text)
+    if response.status_code == 429:
+        return LLMRetryableProviderError("mistral", "network", text)
+    if response.status_code >= 500:
+        return LLMRetryableProviderError("mistral", "network", text)
+    return LLMProviderError("mistral", "provider", text)
+
+
+def _response_error_text(response: httpx.Response) -> str:
+    try:
+        return _error_payload_text(response.json())
+    except json.JSONDecodeError:
+        return response.text[:500]
+
+
+def _error_payload_text(payload: Any) -> str:
+    if isinstance(payload, dict):
+        error = payload.get("error")
+        if isinstance(error, dict):
+            parts = [str(error.get(key, "")) for key in ("code", "type", "message") if error.get(key)]
+            return " ".join(parts)
+        if error:
+            return str(error)
+        parts = [str(payload.get(key, "")) for key in ("code", "type", "message", "detail") if payload.get(key)]
+        return " ".join(parts)
+    return str(payload) if payload else ""
+
+
+def _looks_like_quota_error(text: str) -> bool:
+    normalized = text.lower()
+    markers = ("insufficient_quota", "quota", "credit", "credits", "billing", "payment")
+    return any(marker in normalized for marker in markers)
+
+
+def _provider_display_name(provider: str) -> str:
+    normalized = provider.strip().lower()
+    if normalized == "openai":
+        return "OpenAI"
+    if normalized == "mistral":
+        return "Mistral"
+    return provider.capitalize()

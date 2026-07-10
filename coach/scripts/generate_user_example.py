@@ -13,9 +13,14 @@ sys.path.insert(0, str(REPO_COACH_DIR))
 from src.config import DEFAULT_SYSTEM_PROMPT, DEFAULT_USER_PROMPT_TEMPLATE
 
 
-def build_example() -> dict[str, dict[str, str]]:
+def build_example() -> dict[str, dict[str, object]]:
     return {
         "llm": {
+            "provider": "mistral",
+            "api_keys": {
+                "mistral": "<MISTRAL_API_KEY>",
+                "openai": "<OPENAI_API_KEY>",
+            },
             "system_prompt": DEFAULT_SYSTEM_PROMPT,
             "user_prompt_template": DEFAULT_USER_PROMPT_TEMPLATE,
         }

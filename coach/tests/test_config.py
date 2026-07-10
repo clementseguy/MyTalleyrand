@@ -18,8 +18,9 @@ def _settings_template(tmp_path: Path) -> Path:
             "log_file": str(tmp_path / "logs" / "app.log"),
         },
         "llm": {
-            "provider": "openai",
-            "model": "gpt-4o-mini",
+            "provider": "mistral",
+            "model": "mistral-small-latest",
+            "models": {"mistral": "mistral-small-latest", "openai": "gpt-4o-mini"},
             "max_tokens": 500,
             "temperature": 0.7,
             "timeout_seconds": 15,
@@ -38,7 +39,8 @@ def test_load_config_reads_json(tmp_path: Path):
     config = load_config(settings_path)
 
     assert config.schema_version == "0.1.0"
-    assert config.llm_provider == "openai"
+    assert config.llm_provider == "mistral"
+    assert config.llm_model == "mistral-small-latest"
     assert config.overlay_width == 400
     assert config.analysis_interval_turns == 10
 
@@ -63,7 +65,8 @@ def test_load_config_reads_user_file(tmp_path: Path, monkeypatch):
         json.dumps(
             {
                 "llm": {
-                    "api_key": "sk-test",
+                    "provider": "openai",
+                    "api_keys": {"openai": "sk-test"},
                     "system_prompt": "Tu es un coach test.",
                     "user_prompt_template": "Focus={victory_focus}; State={game_state_json}",
                 }
@@ -77,13 +80,15 @@ def test_load_config_reads_user_file(tmp_path: Path, monkeypatch):
     config = load_config(settings_path, user_settings_path=user_settings_path)
 
     assert config.llm_api_key == "sk-test"
+    assert config.llm_provider == "openai"
+    assert config.llm_model == "gpt-4o-mini"
     assert config.llm_system_prompt == "Tu es un coach test."
     assert config.llm_user_prompt_template.startswith("Focus=")
 
 
 def test_load_config_prefers_env_api_key_over_keychain(tmp_path: Path, monkeypatch):
     settings_path = _settings_template(tmp_path)
-    monkeypatch.setenv("TALLEYRAND_OPENAI_API_KEY", "sk-env")
+    monkeypatch.setenv("TALLEYRAND_MISTRAL_API_KEY", "sk-env")
     monkeypatch.setattr("src.config.get_api_key", lambda _provider: "sk-keychain")
 
     config = load_config(settings_path)
@@ -93,11 +98,23 @@ def test_load_config_prefers_env_api_key_over_keychain(tmp_path: Path, monkeypat
 
 def test_load_config_reads_api_key_from_keychain(tmp_path: Path, monkeypatch):
     settings_path = _settings_template(tmp_path)
-    monkeypatch.delenv("TALLEYRAND_OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("TALLEYRAND_MISTRAL_API_KEY", raising=False)
     monkeypatch.setattr("src.config.get_api_key", lambda provider: f"sk-{provider}")
 
     config = load_config(settings_path)
 
+    assert config.llm_api_key == "sk-mistral"
+
+
+def test_load_config_keeps_openai_available_with_explicit_provider(tmp_path: Path, monkeypatch):
+    settings_path = _settings_template(tmp_path)
+    monkeypatch.setenv("TALLEYRAND_LLM_PROVIDER", "openai")
+    monkeypatch.setattr("src.config.get_api_key", lambda provider: f"sk-{provider}")
+
+    config = load_config(settings_path)
+
+    assert config.llm_provider == "openai"
+    assert config.llm_model == "gpt-4o-mini"
     assert config.llm_api_key == "sk-openai"
 
 
@@ -165,6 +182,9 @@ def test_user_example_matches_prompt_constants():
     example_path = Path(__file__).resolve().parents[1] / "config" / "coach.user.example.json"
     payload = json.loads(example_path.read_text(encoding="utf-8"))
 
+    assert payload["llm"]["provider"] == "mistral"
+    assert payload["llm"]["api_keys"]["mistral"] == "<MISTRAL_API_KEY>"
+    assert payload["llm"]["api_keys"]["openai"] == "<OPENAI_API_KEY>"
     assert payload["llm"]["system_prompt"] == DEFAULT_SYSTEM_PROMPT
     assert payload["llm"]["user_prompt_template"] == DEFAULT_USER_PROMPT_TEMPLATE
 
@@ -186,6 +206,9 @@ def test_default_settings_use_steam_paths():
     settings_path = Path(__file__).resolve().parents[1] / "config" / "settings.json"
     payload = json.loads(settings_path.read_text(encoding="utf-8"))
 
+    assert payload["llm"]["provider"] == "mistral"
+    assert payload["llm"]["models"]["mistral"] == "mistral-small-latest"
+    assert payload["llm"]["models"]["openai"] == "gpt-4o-mini"
     assert payload["paths"]["civ5_user_dir"].endswith("Library/Application Support/Sid Meier's Civilization 5")
     assert payload["paths"]["mod_export_dir"].endswith("Library/Application Support/Sid Meier's Civilization 5/MODS/MyTalleyrand/export")
     assert payload["paths"]["gamestate_file"].endswith("Library/Application Support/Sid Meier's Civilization 5/MODS/MyTalleyrand/export/gamestate.json")

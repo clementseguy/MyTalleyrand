@@ -38,11 +38,13 @@ while IFS= read -r target_dir; do
 done < <(mod_uninstall_targets | awk '!seen[$0]++')
 
 if command -v python3 >/dev/null 2>&1; then
-  if PYTHONPATH="$PWD/coach" python3 -m src.keychain delete openai >/dev/null 2>&1; then
-    printf "✅ Clé API OpenAI supprimée du Keychain (service MyTalleyrand)\n"
-  else
-    printf "⚠️  Clé API Keychain absente ou suppression indisponible (keyring/macOS requis)\n"
-  fi
+  for provider in mistral openai; do
+    if PYTHONPATH="$PWD/coach" python3 -m src.keychain delete "$provider" >/dev/null 2>&1; then
+      printf "✅ Clé API %s supprimée du Keychain (service MyTalleyrand)\n" "$provider"
+    else
+      printf "ℹ️  Clé API %s absente ou suppression indisponible (keyring/macOS requis)\n" "$provider"
+    fi
+  done
 else
   printf "⚠️  python3 introuvable: suppression Keychain ignorée\n"
 fi

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 import sys
 import time
 from pathlib import Path
@@ -13,7 +14,14 @@ if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from src.coach import CoachingEngine
-from src.config import ConfigError, DEFAULT_SETTINGS_PATH, DEFAULT_USER_SETTINGS_PATH, load_config, validate_config
+from src.config import (
+    ConfigError,
+    DEFAULT_SETTINGS_PATH,
+    DEFAULT_USER_SETTINGS_PATH,
+    SUPPORTED_LLM_PROVIDERS,
+    load_config,
+    validate_config,
+)
 from src.llm_client import LLMClient
 from src.onboarding import (
     build_onboarding_checks,
@@ -42,12 +50,27 @@ def main() -> int:
     parser.add_argument("--once", action="store_true", help="démarre puis s'arrête")
     parser.add_argument("--onboarding", action="store_true", help="affiche les vérifications de premier lancement puis s'arrête")
     parser.add_argument(
+        "--llm-provider",
+        choices=SUPPORTED_LLM_PROVIDERS,
+        default=None,
+        help="provider LLM à utiliser pour ce lancement (mistral par défaut, openai disponible)",
+    )
+    parser.add_argument(
+        "--llm-model",
+        default=None,
+        help="modèle LLM à utiliser pour ce lancement",
+    )
+    parser.add_argument(
         "--victory-focus",
         default=None,
         choices=VICTORY_FOCUSES,
         help="objectif de victoire (phase 4)",
     )
     args = parser.parse_args()
+    if args.llm_provider is not None:
+        os.environ["TALLEYRAND_LLM_PROVIDER"] = args.llm_provider
+    if args.llm_model is not None:
+        os.environ["TALLEYRAND_LLM_MODEL"] = args.llm_model
 
     try:
         config = load_config()
