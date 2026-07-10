@@ -3,6 +3,8 @@
   "paths": {
     "civ5_user_dir": "~/Library/Application Support/Sid Meier's Civilization 5",
     "mod_export_dir": "~/Library/Application Support/Sid Meier's Civilization 5/MODS/MyTalleyrand/export",
+    "gamestate_source": "sqlite",
+    "gamestate_db": "~/Library/Application Support/Sid Meier's Civilization 5/ModUserData/a1b2c3d4-e5f6-7890-abcd-ef1234567890-1.db",
     "gamestate_file": "~/Library/Application Support/Sid Meier's Civilization 5/MODS/MyTalleyrand/export/gamestate.json",
     "log_file": "~/talleyrand.log"
   },

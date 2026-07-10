@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from src.gamestate_schema import validate_gamestate
+from src.gamestate_source import FileGameStateSource, GameStateSource
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +26,12 @@ class GameStateIssue:
 
 
 class GameStateWatcher:
-    """Surveille gamestate.json, valide son contenu et déduplique par turn_id."""
+    """Surveille une source de gamestate, valide son contenu et déduplique par turn_id.
+
+    La source peut être un fichier JSON (Windows) ou une base SQLite ModUserData
+    (macOS). Le watcher ne connaît que l'interface GameStateSource ; la logique de
+    détection de changement, validation de schéma et déduplication reste identique.
+    """
 
     def __init__(
         self,
@@ -33,19 +39,22 @@ class GameStateWatcher:
         callback: Callable[[dict[str, Any], Path], None],
         poll_interval_seconds: float = 0.5,
         issue_callback: Callable[[GameStateIssue, Path], None] | None = None,
+        source: GameStateSource | None = None,
     ):
         self.gamestate_file = gamestate_file
         self.callback = callback
         self.poll_interval_seconds = poll_interval_seconds
         self.issue_callback = issue_callback
+        # Par défaut (compat ascendante) : surveillance d'un fichier JSON.
+        self.source: GameStateSource = source or FileGameStateSource(gamestate_file)
         self._seen_turn_ids: set[int] = set()
-        self._last_mtime_ns: int | None = None
+        self._last_change_token: int | None = None
         self._last_issue_signature: tuple[str, str] | None = None
         self._last_seen_exists = False
         self._running = False
         self._thread: threading.Thread | None = None
 
-        logger.info("👁️ GameStateWatcher initialisé sur %s", gamestate_file)
+        logger.info("👁️ GameStateWatcher initialisé sur %s", self.source.label)
 
     def start(self) -> None:
         """Démarre la boucle de surveillance en arrière-plan."""
@@ -77,39 +86,43 @@ class GameStateWatcher:
             time.sleep(self.poll_interval_seconds)
 
     def _check_for_update(self) -> None:
-        if not self.gamestate_file.exists():
+        snapshot = self.source.read()
+
+        if not snapshot.exists:
             self._last_seen_exists = False
             self._notify_issue(
                 GameStateIssue(
                     kind="missing",
-                    message="gamestate.json est introuvable.",
-                    suggestion="Vérifiez que le mod MyTalleyrand est activé et que le dossier export existe.",
+                    message=f"Source de gamestate introuvable ({self.source.label}).",
+                    suggestion="Vérifiez que le mod MyTalleyrand est activé et qu'une partie a démarré.",
                 )
             )
             return
 
-        stat = self.gamestate_file.stat()
-        if self._last_mtime_ns == stat.st_mtime_ns:
+        # Rien de neuf (contenu inchangé, ou source présente mais pas encore de gamestate).
+        if snapshot.change_token is None or snapshot.change_token == self._last_change_token:
+            return
+        if snapshot.raw_json is None:
             return
 
-        self._last_mtime_ns = stat.st_mtime_ns
+        self._last_change_token = snapshot.change_token
+        raw_content = snapshot.raw_json
         if not self._last_seen_exists:
-            logger.info("📄 Fichier gamestate détecté: %s (taille=%d octets)", self.gamestate_file, stat.st_size)
+            logger.info("📄 Gamestate détecté: %s (%d octets)", self.source.label, len(raw_content))
         else:
-            logger.info("🔄 Fichier gamestate mis à jour: %s (taille=%d octets)", self.gamestate_file, stat.st_size)
+            logger.info("🔄 Gamestate mis à jour: %s (%d octets)", self.source.label, len(raw_content))
         self._last_seen_exists = True
 
         try:
-            raw_content = self.gamestate_file.read_text(encoding="utf-8")
             if not raw_content.strip():
-                raise json.JSONDecodeError("empty file", raw_content, 0)
+                raise json.JSONDecodeError("empty content", raw_content, 0)
             payload = json.loads(raw_content)
         except json.JSONDecodeError as exc:
-            logger.warning("JSON corrompu ou incomplet (%s): %s", self.gamestate_file, exc)
+            logger.warning("JSON corrompu ou incomplet (%s): %s", self.source.label, exc)
             self._notify_issue(
                 GameStateIssue(
                     kind="invalid_json",
-                    message="gamestate.json est vide, incomplet ou corrompu.",
+                    message="Le gamestate est vide, incomplet ou corrompu.",
                     suggestion="Attendez le prochain tour ou consultez Lua.log si le problème persiste.",
                 )
             )

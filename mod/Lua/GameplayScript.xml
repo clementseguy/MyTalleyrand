@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Contexte UI minimal (invisible) pour MyTalleyrand.
+  Point d'entrée InGameUIAddin : à l'instanciation de ce contexte, le moteur Civ5
+  exécute automatiquement le script Lua de même nom (GameplayScript.lua) situé
+  dans le même dossier. Un contrôle réel (Box masquée) est nécessaire pour que le
+  contexte soit effectivement instancié — un <Context/> vide n'exécute pas son Lua.
+-->
+<Context>
+    <Box ID="TalleyrandRoot" Size="2,2" Offset="0,0" Anchor="L,T" Hidden="1" ConsumeMouse="0"/>
+</Context>

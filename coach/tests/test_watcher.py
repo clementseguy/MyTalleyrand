@@ -66,7 +66,7 @@ def test_watcher_logs_when_gamestate_file_is_detected(tmp_path: Path, caplog):
     finally:
         watcher.stop()
 
-    assert any("Fichier gamestate détecté" in record.message for record in caplog.records)
+    assert any("Gamestate détecté" in record.message for record in caplog.records)
 
 
 def test_watcher_reports_missing_file_issue_once(tmp_path: Path):

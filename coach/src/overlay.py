@@ -207,6 +207,32 @@ class QtOverlayBackend:
         self._window.hide()
         self._app.processEvents()
 
+    def exec(self) -> None:
+        """Lance la boucle d'événements Qt sur le thread principal (bloquant).
+
+        Indispensable : sans elle, la fenêtre ne se peint pas et les mises à jour
+        postées depuis le thread watcher (QueuedConnection) ne sont jamais traitées.
+        Un QTimer périodique laisse l'interpréteur Python traiter SIGINT (Ctrl+C).
+        """
+        import signal
+
+        from PyQt6.QtCore import QTimer
+
+        try:
+            signal.signal(signal.SIGINT, lambda *_: self._app.quit())
+        except ValueError:
+            # signal() n'est utilisable que depuis le thread principal.
+            pass
+
+        keepalive = QTimer()
+        keepalive.timeout.connect(lambda: None)
+        keepalive.start(200)
+        self._keepalive_timer = keepalive
+        self._app.exec()
+
+    def quit(self) -> None:
+        self._app.quit()
+
     def prompt_victory_focus(self, current_focus: str, choices: tuple[str, ...]) -> str | None:
         from PyQt6.QtWidgets import QInputDialog
 
@@ -355,6 +381,22 @@ class TalleyrandOverlay:
     def close(self) -> None:
         self.hide()
         self._dispatch_backend(lambda: self.backend.close())
+
+    def run_forever(self) -> None:
+        """Bloque le thread principal : boucle Qt si backend graphique, sinon veille.
+
+        Le watcher tourne dans un thread séparé ; c'est ici que le thread principal
+        traite les événements UI. Pour le backend texte (tests/headless), on retombe
+        sur une veille interruptible par KeyboardInterrupt (gérée par l'appelant).
+        """
+        runner = getattr(self.backend, "exec", None)
+        if callable(runner):
+            runner()
+            return
+        import time
+
+        while True:
+            time.sleep(1)
 
     def set_preferences_callback(self, callback: Callable[[], None]) -> None:
         self._preferences_callback = callback

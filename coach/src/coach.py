@@ -47,12 +47,19 @@ class CoachingEngine:
         self.cost_limit_usd = max(0.01, float(cost_limit_usd))
         self.preferences = preferences_store.load() if preferences_store is not None else UserPreferences()
         self.victory_focus = self.preferences.normalized_focus()
+        # Dernier tour réellement analysé, pour un déclenchement robuste aux tours sautés.
+        self._last_analyzed_turn = 0
 
     def get_decision(self, turn_number: int) -> CoachingDecision:
         if turn_number == 1:
             return CoachingDecision(True, "tour_1_initialisation")
-        if turn_number % self.analysis_interval_turns == 0:
-            return CoachingDecision(True, f"cycle_{self.analysis_interval_turns}_tours")
+        interval = self.analysis_interval_turns
+        # Analyse une fois par bloc de `interval` tours (bornes 10, 20, 30…). En
+        # comparant les blocs plutôt que `turn % interval == 0`, un tour pile sur
+        # la borne qui serait sauté (course d'écriture, tour manqué) est rattrapé
+        # par le tour suivant du même bloc.
+        if turn_number // interval > self._last_analyzed_turn // interval:
+            return CoachingDecision(True, f"cycle_{interval}_tours")
         return CoachingDecision(False, "hors_cycle")
 
     def set_victory_focus(self, focus: str) -> None:
@@ -68,6 +75,9 @@ class CoachingEngine:
         if not decision.should_analyze:
             logger.info("⏭️ Pas d'analyse au tour %s (%s)", turn_number, decision.reason)
             return None
+
+        # Marque ce bloc comme analysé (évite une seconde analyse dans le même bloc).
+        self._last_analyzed_turn = turn_number
 
         if self.preferences_store is not None:
             self.preferences = self.preferences_store.update_from_game_state(game_state, self.preferences)

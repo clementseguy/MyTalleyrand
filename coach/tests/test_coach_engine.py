@@ -135,8 +135,9 @@ def test_coaching_engine_reuses_cached_advice_for_same_context(tmp_path: Path, m
     engine = CoachingEngine(client, history_file=history_file)
     state = make_gamestate(turn_id=10, turn_number=10, rich=True)
 
+    # Deux tours d'analyse (blocs 10 puis 20) au contexte identique -> cache hit.
     first = engine.maybe_generate_advice(state)
-    second = engine.maybe_generate_advice({**state, "turn_id": 11})
+    second = engine.maybe_generate_advice({**state, "turn_id": 20, "turn_number": 20})
 
     assert first is not None
     assert second is not None

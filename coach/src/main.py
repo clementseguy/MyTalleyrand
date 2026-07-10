@@ -21,6 +21,7 @@ from src.onboarding import (
     mark_onboarding_done,
     should_run_first_launch_onboarding,
 )
+from src.gamestate_source import build_source
 from src.overlay import OverlaySettings, TalleyrandOverlay
 from src.preferences import PreferencesStore, VICTORY_FOCUSES
 from src.watcher import GameStateIssue, GameStateWatcher
@@ -165,7 +166,16 @@ def main() -> int:
         )
         refresh_runtime_budget_settings()
         if payload["turn_number"] == 1 and not args.once:
-            prompt_victory_focus()
+            try:
+                # Demander le focus de victoire sur le thread UI de l'overlay
+                overlay._dispatch_backend(prompt_victory_focus)
+            except Exception:
+                # En cas d'erreur, retomber sur l'appel synchrone (sécurisé pour backend texte)
+                logger.exception("Échec du dispatch UI pour prompt_victory_focus, tentative synchrone")
+                try:
+                    prompt_victory_focus()
+                except Exception:
+                    logger.exception("Échec de prompt_victory_focus")
         advice = coaching_engine.maybe_generate_advice(payload)
         if advice is not None:
             overlay.show_advice(advice, budget_status=coaching_engine.get_budget_status())
@@ -174,11 +184,29 @@ def main() -> int:
         logger.warning("Problème gamestate détecté depuis %s: %s", source_file, issue.message)
         overlay.show_status("Problème gamestate", issue.message, issue.suggestion)
 
+    # Sélection de la source selon la plateforme :
+    #  - 'sqlite' (défaut macOS) : base ModUserData écrite par le mod (pas de io côté Lua).
+    #  - 'file'  : fichier gamestate.json (mod Windows).
+    if config.gamestate_source == "sqlite":
+        watch_path = config.gamestate_db
+    else:
+        watch_path = config.gamestate_file
+    source = build_source(
+        config.gamestate_source,
+        db_path=config.gamestate_db,
+        file_path=config.gamestate_file,
+    )
+
     logger.info("🎮 Démarrage de Talleyrand Coach...")
     logger.info("✅ Configuration chargée (schema=%s)", config.schema_version)
-    logger.info("📁 Surveillance prévue: %s", config.gamestate_file)
+    logger.info("📁 Surveillance (%s): %s", config.gamestate_source, watch_path)
 
-    watcher = GameStateWatcher(config.gamestate_file, on_new_turn, issue_callback=on_gamestate_issue)
+    watcher = GameStateWatcher(
+        watch_path,
+        on_new_turn,
+        issue_callback=on_gamestate_issue,
+        source=source,
+    )
     watcher.start()
 
     if args.once:
@@ -188,8 +216,9 @@ def main() -> int:
         return 0
 
     try:
-        while True:
-            time.sleep(1)
+        # Bloquant : boucle d'événements Qt (backend graphique) ou veille (texte).
+        # Sans cette boucle, la fenêtre overlay ne s'affiche jamais.
+        overlay.run_forever()
     except KeyboardInterrupt:
         logger.info("⏹️ Arrêt de Talleyrand Coach")
     finally:

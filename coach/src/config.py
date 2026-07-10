@@ -14,6 +14,14 @@ from src.keychain import get_api_key
 DEFAULT_SETTINGS_PATH = Path(__file__).resolve().parents[1] / "config" / "settings.json"
 DEFAULT_USER_SETTINGS_PATH = Path.home() / "Library" / "Application Support" / "MyTalleyrand" / "coach.user.json"
 
+# Sources de gamestate supportées.
+GAMESTATE_SOURCES = ("sqlite", "file")
+# Base SQLite ModUserData écrite par le mod sur macOS (émulation Aspyr sans io/os).
+DEFAULT_GAMESTATE_DB = (
+    "~/Library/Application Support/Sid Meier's Civilization 5/"
+    "ModUserData/a1b2c3d4-e5f6-7890-abcd-ef1234567890-1.db"
+)
+
 DEFAULT_SYSTEM_PROMPT = (
     "Tu es Talleyrand, coach stratégique pour Civilization V. "
     "Réponds de manière actionnable et concise en français. "
@@ -43,6 +51,8 @@ class AppConfig:
     schema_version: str
     civ5_dir: Path
     export_dir: Path
+    gamestate_source: str
+    gamestate_db: Path
     gamestate_file: Path
     log_file: Path
     llm_provider: str
@@ -175,6 +185,18 @@ def load_config(settings_path: Path | None = None, user_settings_path: Path | No
                 str,
             )
         ),
+        gamestate_source=_env_or_default(
+            "TALLEYRAND_GAMESTATE_SOURCE",
+            paths.get("gamestate_source", "sqlite"),
+            str,
+        ),
+        gamestate_db=_expand(
+            _env_or_default(
+                "TALLEYRAND_GAMESTATE_DB",
+                paths.get("gamestate_db", DEFAULT_GAMESTATE_DB),
+                str,
+            )
+        ),
         gamestate_file=_expand(
             _env_or_default(
                 "TALLEYRAND_GAMESTATE_FILE",
@@ -265,6 +287,8 @@ def validate_config(config: AppConfig) -> list[str]:
         errors.append("Analysis interval must be a positive integer")
     if config.llm_detail_level not in {"brief", "standard", "detailed"}:
         errors.append("LLM detail_level must be brief, standard, or detailed")
+    if config.gamestate_source not in GAMESTATE_SOURCES:
+        errors.append(f"gamestate_source must be one of {GAMESTATE_SOURCES}")
     if not isinstance(config.cost_limit_usd, (int, float)) or config.cost_limit_usd <= 0:
         errors.append("Cost limit must be a positive number")
     if "{victory_focus}" not in config.llm_user_prompt_template:

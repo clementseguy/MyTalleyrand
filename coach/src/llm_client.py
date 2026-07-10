@@ -162,9 +162,9 @@ class LLMClient:
             input=[
                 {
                     "role": "system",
-                    "content": [{"type": "text", "text": self.system_prompt}],
+                    "content": [{"type": "input_text", "text": self.system_prompt}],
                 },
-                {"role": "user", "content": [{"type": "text", "text": prompt}]},
+                {"role": "user", "content": [{"type": "input_text", "text": prompt}]},
             ],
         )
 
