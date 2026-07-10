@@ -147,6 +147,14 @@ def _openai_exception(kind: str):
             response=response,
             body={"error": {"code": "insufficient_quota", "message": "quota exceeded"}},
         )
+    if kind == "auth":
+        exc = APIError(
+            "invalid api key",
+            request,
+            body={"error": {"code": "invalid_api_key", "message": "bad key"}},
+        )
+        exc.status_code = 401
+        return exc
     if kind == "api_error":
         return APIError("server error", request, body=None)
     raise AssertionError(f"exception non prévue: {kind}")
@@ -209,6 +217,30 @@ def test_openai_insufficient_quota_is_not_retried():
     assert advice.source == "local_fallback"
     assert failing_client.responses.attempts == 1
     assert [status.title for status in statuses] == ["Crédit OpenAI épuisé"]
+
+
+def test_openai_auth_error_is_not_retried():
+    statuses = []
+    client = LLMClient(provider="openai", model="gpt-4o-mini", status_callback=statuses.append, api_key="test")
+
+    class FailingResponses:
+        attempts = 0
+
+        def create(self, **_kwargs):
+            self.attempts += 1
+            raise _openai_exception("auth")
+
+    class FailingClient:
+        responses = FailingResponses()
+
+    failing_client = FailingClient()
+    client._openai_client = failing_client
+
+    advice = client.generate_advice(make_gamestate(), victory_focus="science")
+
+    assert advice.source == "local_fallback"
+    assert failing_client.responses.attempts == 1
+    assert [status.title for status in statuses] == ["Clé API OpenAI invalide"]
 
 
 @pytest.mark.parametrize(

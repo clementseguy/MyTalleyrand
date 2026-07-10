@@ -25,12 +25,12 @@ Civ5 (Lua) ──► ModUserData (SQLite) ──► source ──► watcher ─
 | **Watcher** | `coach/src/watcher.py` | Poll la source, valide le schéma, déduplique par `turn_id` |
 | **Coach** | `coach/src/coach.py` | Décide quand analyser (tour 1, puis tous les 10 tours), applique les préférences et signale les contextes insuffisants |
 | **Préférences** | `coach/src/preferences.py` | Persiste l’objectif de victoire et les paramètres de partie détectés |
-| **LLM Client** | `coach/src/llm_client.py` | Appel OpenAI + retry exponentiel, statuts UX réseau et fallback local |
+| **LLM Client** | `coach/src/llm_client.py` | Appels Mistral/OpenAI, retry exponentiel, erreurs actionnables et fallback local |
 | **Overlay** | `coach/src/overlay.py` | Affiche conseils via backend PyQt6 runtime + backend texte pour tests/headless |
 | **Config** | `coach/src/config.py` | Multi-niveaux : settings.json → coach.user.json → Keychain → env vars |
 | **Schéma** | `coach/src/gamestate_schema.py` | Valide gamestate v0.1.0 |
 | **Keychain** | `coach/src/keychain.py` | Stockage/récupération/suppression des clés API via `keyring` et le Keychain macOS |
-| **Onboarding** | `coach/src/onboarding.py` | Vérifications de premier lancement: chemins Civ5/export, clé API, permission Accessibilité macOS |
+| **Onboarding** | `coach/src/onboarding.py` | Vérifications de premier lancement: chemins Civ5, source SQLite, clé API du provider actif, permission Accessibilité macOS |
 
 ### Format gamestate (v0.1.0)
 
@@ -81,17 +81,20 @@ Configuration lue par le coach :
 
 1. **`coach/config/settings.json`** — valeurs par défaut (chemins, modèle LLM, overlay)
 2. **`~/Library/Application Support/MyTalleyrand/coach.user.json`** — prompts personnalisés et autres préférences non sensibles
-3. **`.../MODS/MyTalleyrand/export/user_preferences.json`** — objectif de victoire choisi dans l’overlay et paramètres de partie détectés
-4. **Keychain macOS** — clé API OpenAI stockée par `keyring` sous le service `MyTalleyrand`
-5. **Variables d'environnement** — `TALLEYRAND_OPENAI_API_KEY`, `TALLEYRAND_LLM_MODEL`, etc. La variable `TALLEYRAND_OPENAI_API_KEY` reste prioritaire pour le développement/CI.
+3. **Dossier d'état coach `mod_export_dir`** — historique, overlay et objectif de victoire choisi dans l’overlay ; ce dossier n'est pas la source gamestate macOS
+4. **Keychain macOS** — clés API stockées par `keyring` sous le service `MyTalleyrand`, comptes `mistral` et `openai`
+5. **Variables d'environnement** — `TALLEYRAND_MISTRAL_API_KEY`, `TALLEYRAND_OPENAI_API_KEY`, `TALLEYRAND_LLM_MODEL`, etc.
 
-Commande utile pour gérer la clé OpenAI sans relancer l'installateur :
+Commandes utiles pour gérer les clés sans relancer l'installateur :
 
 ```bash
 cd coach
+python3 -m src.keychain set mistral  # saisie masquée
 python3 -m src.keychain set openai   # saisie masquée
-printf "%s" "$TALLEYRAND_OPENAI_API_KEY" | python3 -m src.keychain set openai --stdin
+printf "%s" "$TALLEYRAND_MISTRAL_API_KEY" | python3 -m src.keychain set mistral --stdin
+python3 -m src.keychain get mistral
 python3 -m src.keychain get openai
+python3 -m src.keychain delete mistral
 python3 -m src.keychain delete openai
 ```
 
@@ -101,9 +104,10 @@ Variables d'environnement disponibles :
 
 | Variable | Défaut | Description |
 |----------|--------|-------------|
+| `TALLEYRAND_MISTRAL_API_KEY` | Keychain macOS | Clé API Mistral, prioritaire si définie |
 | `TALLEYRAND_OPENAI_API_KEY` | Keychain macOS | Clé API OpenAI, prioritaire si définie |
-| `TALLEYRAND_LLM_PROVIDER` | `openai` | Provider LLM |
-| `TALLEYRAND_LLM_MODEL` | `gpt-4o-mini` | Modèle |
+| `TALLEYRAND_LLM_PROVIDER` | `mistral` | Provider LLM |
+| `TALLEYRAND_LLM_MODEL` | `mistral-small-latest` | Modèle |
 | `TALLEYRAND_LLM_SYSTEM_PROMPT` | (interne) | Prompt système |
 | `TALLEYRAND_LLM_USER_PROMPT_TEMPLATE` | (interne) | Template prompt (doit contenir `{victory_focus}` et `{game_state_json}`) |
 | `TALLEYRAND_CIV5_DIR` | `~/Library/Application Support/Sid Meier's Civilization 5` | Dossier de données Civ5 (Steam/Aspyr macOS) |
@@ -111,6 +115,7 @@ Variables d'environnement disponibles :
 | `TALLEYRAND_GAMESTATE_DB` | `.../ModUserData/a1b2c3d4-…-1.db` | Base SQLite ModUserData lue en mode `sqlite` |
 | `TALLEYRAND_GAMESTATE_FILE` | `.../export/gamestate.json` | Fichier surveillé en mode `file` |
 | `TALLEYRAND_LOG_FILE` | `~/talleyrand.log` | Fichier de log |
+| `TALLEYRAND_ANALYSIS_INTERVAL_TURNS` | `10` | Fréquence d'analyse ; `1` force une analyse à chaque tour |
 
 ## Conventions
 
@@ -120,6 +125,7 @@ Variables d'environnement disponibles :
 - Côté coach : lecture SQLite en read-only (`mode=ro`) pour cohabiter avec le jeu, tolérante aux verrous/écritures concurrentes
 - Retry exponentiel (tenacity) côté LLM avec statut overlay `Reconnexion LLM en cours`
 - Fallback local déterministe si LLM indisponible, signalé dans l'overlay avec reprise automatique au prochain tour analysé
+- Un nouveau conseil force l'overlay visible même si le joueur l'a fermé au tour précédent
 - Contexte insuffisant signalé distinctement avec confiance basse au lieu d’un conseil présenté comme certain
 - Tests : `cd coach && python3 -m pytest`
 - Validation complète : `./scripts/validate.sh`
@@ -131,3 +137,4 @@ Variables d'environnement disponibles :
 - [BACKLOG_v0.3.md](BACKLOG_v0.3.md) — préparation du partage communauté
 - [TESTING.md](TESTING.md) — tests automatisés et manuels
 - [MACOS_GUIDE.md](MACOS_GUIDE.md) — spécificités macOS (chemins, permissions, packaging)
+- [VENV_DEBUG_AUDIT.md](VENV_DEBUG_AUDIT.md) — conservation temporaire et audit secrets du `.venv`

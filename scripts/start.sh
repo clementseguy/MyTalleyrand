@@ -14,6 +14,9 @@ echo "2) Validation projet"
 ./scripts/validate.sh || true
 
 echo ""
-echo "3) Lancer le coach installé"
-echo "   cd ~/Applications/MyTalleyrandCoach/coach"
-echo "   .venv/bin/python src/main.py"
+echo "3) Lancer le coach du dépôt courant"
+echo "   ./scripts/run_coach.sh --debug"
+
+echo ""
+echo "4) Lancer le coach installé"
+echo "   open ~/Applications/MyTalleyrandCoach/start_coach.command"

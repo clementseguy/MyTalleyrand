@@ -41,10 +41,10 @@ def build_onboarding_checks(config: AppConfig) -> list[OnboardingCheck]:
             suggestion="Lancez Civilization V une première fois ou ajustez TALLEYRAND_CIV5_DIR.",
         ),
         OnboardingCheck(
-            name="Dossier export",
+            name="Dossier état coach",
             ok=_can_write_directory(config.export_dir),
-            message=f"Dossier export accessible en écriture: {config.export_dir}",
-            suggestion="Vérifiez l'installation du mod et les permissions du dossier MODS/MyTalleyrand/export.",
+            message=f"Dossier d'état overlay/historique accessible en écriture: {config.export_dir}",
+            suggestion="Vérifiez l'installation du mod et les permissions du dossier MODS/MyTalleyrand.",
         ),
         OnboardingCheck(
             name=f"Clé API {config.llm_provider.capitalize()}",

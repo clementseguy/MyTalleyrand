@@ -167,6 +167,13 @@ MyTalleyrand/
 ./scripts/validate.sh
 ```
 
+- Lancer le coach du dépôt courant en recette :
+
+```bash
+./scripts/run_coach.sh --debug
+./scripts/run_coach.sh --interval 1
+```
+
 - Tests coach :
 
 ```bash
